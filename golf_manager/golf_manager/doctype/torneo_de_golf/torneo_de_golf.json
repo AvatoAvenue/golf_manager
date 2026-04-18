@@ -1,242 +1,224 @@
 {
-  "charts": [],
-  "content": "[{\"id\":\"section-torneos\",\"type\":\"header\",\"data\":{\"text\":\"Torneos\",\"level\":4,\"col\":12}},{\"id\":\"sc-torneo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Torneo de Golf\",\"col\":3}},{\"id\":\"sc-ronda\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Ronda\",\"col\":3}},{\"id\":\"sc-participacion\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Participacion en Torneo\",\"col\":3}},{\"id\":\"sc-grupo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Grupo por Ronda\",\"col\":3}},{\"id\":\"section-scores\",\"type\":\"header\",\"data\":{\"text\":\"Puntuaciones\",\"level\":4,\"col\":12}},{\"id\":\"sc-score\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Puntuacion por Hoyo\",\"col\":3}},{\"id\":\"section-catalogos\",\"type\":\"header\",\"data\":{\"text\":\"Catalogos\",\"level\":4,\"col\":12}},{\"id\":\"sc-campo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Campo de Golf\",\"col\":3}},{\"id\":\"sc-formato\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Formato de Torneo\",\"col\":3}},{\"id\":\"section-ranking\",\"type\":\"header\",\"data\":{\"text\":\"Ranking publico\",\"level\":4,\"col\":12}},{\"id\":\"sc-ranking\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Ranking Publico\",\"col\":3}}]",
-  "creation": "2026-03-31 14:26:37.532536",
-  "custom_blocks": [],
-  "docstatus": 0,
-  "doctype": "Workspace",
-  "for_user": "",
-  "hide_custom": 0,
-  "icon": "fa fa-flag",
-  "idx": 0,
-  "indicator_color": "green",
-  "is_hidden": 0,
-  "label": "Torneos de golf",
-  "links": [
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-03-31 13:59:01.413460",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "nombre_del_torneo",
+    "campo_de_golf",
+    "formato",
+    "estado",
+    "column_break_1",
+    "fecha_de_inicio",
+    "fecha_de_fin",
+    "numero_de_rondas",
+    "section_descripcion",
+    "descripcion",
+    "section_break_mmbe",
+    "amended_from"
+  ],
+  "fields": [
     {
-      "dependencies": "",
-      "doctype": "Workspace Link",
-      "hidden": 0,
-      "is_query_report": 0,
-      "label": "Torneos",
-      "link_count": 0,
-      "onboard": 0,
-      "type": "Card Break"
+      "fieldname": "nombre_del_torneo",
+      "fieldtype": "Data",
+      "label": "Nombre del torneo",
+      "reqd": 1,
+      "in_list_view": 1,
+      "bold": 1,
+      "search_index": 1
     },
     {
-      "dependencies": "",
-      "doctype": "Workspace Link",
-      "hidden": 0,
-      "is_query_report": 0,
-      "label": "Torneo de Golf",
-      "link_count": 0,
-      "link_to": "torneo de golf",
-      "link_type": "DocType",
-      "onboard": 1,
-      "only_for": "",
-      "type": "Link"
+      "fieldname": "campo_de_golf",
+      "fieldtype": "Link",
+      "label": "Campo de golf",
+      "options": "campo de golf",
+      "reqd": 1,
+      "in_list_view": 1,
+      "search_index": 1
     },
     {
-      "dependencies": "torneo de golf",
-      "doctype": "Workspace Link",
-      "hidden": 0,
-      "is_query_report": 0,
-      "label": "Ronda",
-      "link_count": 0,
-      "link_to": "ronda",
-      "link_type": "DocType",
-      "onboard": 1,
-      "only_for": "",
-      "type": "Link"
+      "fieldname": "formato",
+      "fieldtype": "Link",
+      "label": "Formato de torneo",
+      "options": "formato de torneo",
+      "reqd": 1
     },
     {
-      "dependencies": "torneo de golf",
-      "doctype": "Workspace Link",
-      "hidden": 0,
-      "is_query_report": 0,
-      "label": "Participacion en Torneo",
-      "link_count": 0,
-      "link_to": "participacion en torneo",
-      "link_type": "DocType",
-      "onboard": 1,
-      "only_for": "",
-      "type": "Link"
+      "fieldname": "estado",
+      "fieldtype": "Select",
+      "label": "Estado",
+      "options": "Borrador\nActivo\nFinalizado",
+      "default": "Borrador",
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
-      "dependencies": "ronda",
-      "doctype": "Workspace Link",
-      "hidden": 0,
-      "is_query_report": 0,
-      "label": "Grupo por Ronda",
-      "link_count": 0,
-      "link_to": "grupo por ronda",
-      "link_type": "DocType",
-      "onboard": 0,
-      "only_for": "",
-      "type": "Link"
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
     },
     {
-      "dependencies": "",
-      "doctype": "Workspace Link",
-      "hidden": 0,
-      "is_query_report": 0,
-      "label": "Puntuaciones",
-      "link_count": 0,
-      "onboard": 0,
-      "type": "Card Break"
+      "fieldname": "fecha_de_inicio",
+      "fieldtype": "Date",
+      "label": "Fecha de inicio",
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
-      "dependencies": "ronda",
-      "doctype": "Workspace Link",
-      "hidden": 0,
-      "is_query_report": 0,
-      "label": "Puntuacion por Hoyo",
-      "link_count": 0,
-      "link_to": "puntuacion por hoyo",
-      "link_type": "DocType",
-      "onboard": 1,
-      "only_for": "",
-      "type": "Link"
+      "fieldname": "fecha_de_fin",
+      "fieldtype": "Date",
+      "label": "Fecha de fin",
+      "reqd": 1
     },
     {
-      "dependencies": "",
-      "doctype": "Workspace Link",
-      "hidden": 0,
-      "is_query_report": 0,
-      "label": "Catalogos",
-      "link_count": 0,
-      "onboard": 0,
-      "type": "Card Break"
+      "fieldname": "numero_de_rondas",
+      "fieldtype": "Int",
+      "label": "Numero de rondas",
+      "reqd": 1,
+      "default": "1",
+      "non_negative": 1
     },
     {
-      "dependencies": "",
-      "doctype": "Workspace Link",
-      "hidden": 0,
-      "is_query_report": 0,
-      "label": "Campo de Golf",
-      "link_count": 0,
-      "link_to": "campo de golf",
-      "link_type": "DocType",
-      "onboard": 1,
-      "only_for": "",
-      "type": "Link"
+      "fieldname": "section_descripcion",
+      "fieldtype": "Section Break",
+      "label": "Descripcion"
     },
     {
-      "dependencies": "",
-      "doctype": "Workspace Link",
-      "hidden": 0,
-      "is_query_report": 0,
-      "label": "Formato de Torneo",
-      "link_count": 0,
-      "link_to": "formato de torneo",
-      "link_type": "DocType",
-      "onboard": 0,
-      "only_for": "",
-      "type": "Link"
+      "fieldname": "descripcion",
+      "fieldtype": "Text Editor",
+      "label": "Descripcion"
+    },
+    {
+      "fieldname": "section_break_mmbe",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldname": "amended_from",
+      "fieldtype": "Link",
+      "label": "Amended From",
+      "no_copy": 1,
+      "options": "torneo de golf",
+      "print_hide": 1,
+      "read_only": 1,
+      "search_index": 1
     }
   ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "is_submittable": 1,
+  "links": [],
   "modified": "2026-04-01 00:00:00.000000",
   "modified_by": "Administrator",
   "module": "Golf Manager",
-  "name": "Torneos de golf",
-  "number_cards": [],
+  "name": "torneo de golf",
   "owner": "Administrator",
-  "parent_page": "",
-  "public": 1,
-  "quick_lists": [
+  "permissions": [
     {
-      "doctype": "Workspace Quick List",
-      "document_type": "torneo de golf",
-      "filters": "[{\"field\":\"estado\",\"condition\":\"=\",\"value\":\"Activo\"}]",
-      "label": "Torneos activos"
+      "amend": 1,
+      "cancel": 1,
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "if_owner": 0,
+      "import": 0,
+      "permlevel": 0,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "submit": 1,
+      "write": 1
     },
     {
-      "doctype": "Workspace Quick List",
-      "document_type": "ronda",
-      "filters": "[{\"field\":\"estado\",\"condition\":\"=\",\"value\":\"En curso\"}]",
-      "label": "Rondas en curso"
+      "amend": 1,
+      "cancel": 1,
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "if_owner": 0,
+      "import": 0,
+      "permlevel": 0,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "administrador",
+      "share": 1,
+      "submit": 1,
+      "write": 1
+    },
+    {
+      "amend": 0,
+      "cancel": 0,
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "if_owner": 0,
+      "permlevel": 0,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Staff",
+      "share": 0,
+      "submit": 0,
+      "write": 0
+    },
+    {
+      "amend": 0,
+      "cancel": 0,
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "if_owner": 0,
+      "permlevel": 0,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "jugador",
+      "share": 0,
+      "submit": 0,
+      "write": 0
+    },
+    {
+      "amend": 0,
+      "cancel": 0,
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 0,
+      "if_owner": 0,
+      "permlevel": 0,
+      "print": 0,
+      "read": 1,
+      "report": 0,
+      "role": "Visitante",
+      "share": 0,
+      "submit": 0,
+      "write": 0
     }
   ],
-  "roles": [
+  "row_format": "Dynamic",
+  "rows_threshold_for_grid_search": 20,
+  "search_fields": "nombre_del_torneo,campo_de_golf,estado",
+  "sort_field": "fecha_de_inicio",
+  "sort_order": "DESC",
+  "states": [
     {
-      "doctype": "Workspace Role",
-      "role": "System Manager"
+      "color": "Gray",
+      "title": "Borrador"
     },
-    {
-      "doctype": "Workspace Role",
-      "role": "administrador"
-    },
-    {
-      "doctype": "Workspace Role",
-      "role": "Staff"
-    },
-    {
-      "doctype": "Workspace Role",
-      "role": "jugador"
-    }
-  ],
-  "sequence_id": 39.0,
-  "shortcuts": [
     {
       "color": "Green",
-      "doctype": "Workspace Shortcut",
-      "format": "{} activos",
-      "label": "Torneo de Golf",
-      "link_to": "torneo de golf",
-      "stats_filter": "{\"estado\":\"Activo\"}",
-      "type": "DocType"
-    },
-    {
-      "color": "Orange",
-      "doctype": "Workspace Shortcut",
-      "format": "{} en curso",
-      "label": "Ronda",
-      "link_to": "ronda",
-      "stats_filter": "{\"estado\":\"En curso\"}",
-      "type": "DocType"
+      "title": "Activo"
     },
     {
       "color": "Blue",
-      "doctype": "Workspace Shortcut",
-      "label": "Participacion en Torneo",
-      "link_to": "participacion en torneo",
-      "type": "DocType"
-    },
-    {
-      "color": "Purple",
-      "doctype": "Workspace Shortcut",
-      "label": "Puntuacion por Hoyo",
-      "link_to": "puntuacion por hoyo",
-      "type": "DocType"
-    },
-    {
-      "color": "Teal",
-      "doctype": "Workspace Shortcut",
-      "label": "Grupo por Ronda",
-      "link_to": "grupo por ronda",
-      "type": "DocType"
-    },
-    {
-      "color": "Gray",
-      "doctype": "Workspace Shortcut",
-      "label": "Campo de Golf",
-      "link_to": "campo de golf",
-      "type": "DocType"
-    },
-    {
-      "color": "Gray",
-      "doctype": "Workspace Shortcut",
-      "label": "Formato de Torneo",
-      "link_to": "formato de torneo",
-      "type": "DocType"
-    },
-    {
-      "color": "Green",
-      "doctype": "Workspace Shortcut",
-      "label": "Ranking Publico",
-      "link_to": "ranking",
-      "type": "URL"
+      "title": "Finalizado"
     }
   ],
-  "title": "Torneos de golf"
+  "title_field": "nombre_del_torneo"
 }

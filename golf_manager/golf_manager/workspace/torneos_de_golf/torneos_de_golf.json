@@ -1,6 +1,6 @@
 {
   "charts": [],
-  "content": "[{\"id\":\"section-torneos\",\"type\":\"header\",\"data\":{\"text\":\"Torneos\",\"level\":4,\"col\":12}},{\"id\":\"sc-torneo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Torneo de Golf\",\"col\":3}},{\"id\":\"sc-ronda\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Ronda\",\"col\":3}},{\"id\":\"sc-participacion\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Participación en Torneo\",\"col\":3}},{\"id\":\"sc-grupo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Grupo por Ronda\",\"col\":3}},{\"id\":\"section-scores\",\"type\":\"header\",\"data\":{\"text\":\"Puntuaciones\",\"level\":4,\"col\":12}},{\"id\":\"sc-score\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Puntuación por Hoyo\",\"col\":3}},{\"id\":\"section-catalogos\",\"type\":\"header\",\"data\":{\"text\":\"Catálogos\",\"level\":4,\"col\":12}},{\"id\":\"sc-campo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Campo de Golf\",\"col\":3}},{\"id\":\"sc-formato\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Formato de Torneo\",\"col\":3}},{\"id\":\"section-ranking\",\"type\":\"header\",\"data\":{\"text\":\"Ranking público\",\"level\":4,\"col\":12}},{\"id\":\"sc-ranking\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Ranking Público\",\"col\":3}}]",
+  "content": "[{\"id\":\"section-torneos\",\"type\":\"header\",\"data\":{\"text\":\"Torneos\",\"level\":4,\"col\":12}},{\"id\":\"sc-torneo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Torneo de Golf\",\"col\":3}},{\"id\":\"sc-ronda\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Ronda\",\"col\":3}},{\"id\":\"sc-participacion\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Participacion en Torneo\",\"col\":3}},{\"id\":\"sc-grupo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Grupo por Ronda\",\"col\":3}},{\"id\":\"section-scores\",\"type\":\"header\",\"data\":{\"text\":\"Puntuaciones\",\"level\":4,\"col\":12}},{\"id\":\"sc-score\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Puntuacion por Hoyo\",\"col\":3}},{\"id\":\"section-catalogos\",\"type\":\"header\",\"data\":{\"text\":\"Catalogos\",\"level\":4,\"col\":12}},{\"id\":\"sc-campo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Campo de Golf\",\"col\":3}},{\"id\":\"sc-formato\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Formato de Torneo\",\"col\":3}},{\"id\":\"section-ranking\",\"type\":\"header\",\"data\":{\"text\":\"Ranking publico\",\"level\":4,\"col\":12}},{\"id\":\"sc-ranking\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Ranking Publico\",\"col\":3}}]",
   "creation": "2026-03-31 14:26:37.532536",
   "custom_blocks": [],
   "docstatus": 0,
@@ -54,7 +54,7 @@
       "doctype": "Workspace Link",
       "hidden": 0,
       "is_query_report": 0,
-      "label": "Participación en Torneo",
+      "label": "Participacion en Torneo",
       "link_count": 0,
       "link_to": "participacion en torneo",
       "link_type": "DocType",
@@ -90,7 +90,7 @@
       "doctype": "Workspace Link",
       "hidden": 0,
       "is_query_report": 0,
-      "label": "Puntuación por Hoyo",
+      "label": "Puntuacion por Hoyo",
       "link_count": 0,
       "link_to": "puntuacion por hoyo",
       "link_type": "DocType",
@@ -103,7 +103,7 @@
       "doctype": "Workspace Link",
       "hidden": 0,
       "is_query_report": 0,
-      "label": "Catálogos",
+      "label": "Catalogos",
       "link_count": 0,
       "onboard": 0,
       "type": "Card Break"
@@ -164,15 +164,15 @@
     },
     {
       "doctype": "Workspace Role",
-      "role": "Staff deportivo"
+      "role": "administrador"
     },
     {
       "doctype": "Workspace Role",
-      "role": "Staff administrativo"
+      "role": "Staff"
     },
     {
       "doctype": "Workspace Role",
-      "role": "jugador de golf"
+      "role": "jugador"
     }
   ],
   "sequence_id": 39.0,
@@ -198,14 +198,14 @@
     {
       "color": "Blue",
       "doctype": "Workspace Shortcut",
-      "label": "Participación en Torneo",
+      "label": "Participacion en Torneo",
       "link_to": "participacion en torneo",
       "type": "DocType"
     },
     {
       "color": "Purple",
       "doctype": "Workspace Shortcut",
-      "label": "Puntuación por Hoyo",
+      "label": "Puntuacion por Hoyo",
       "link_to": "puntuacion por hoyo",
       "type": "DocType"
     },
@@ -233,7 +233,7 @@
     {
       "color": "Green",
       "doctype": "Workspace Shortcut",
-      "label": "Ranking Público",
+      "label": "Ranking Publico",
       "link_to": "ranking",
       "type": "URL"
     }
