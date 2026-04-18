@@ -5,28 +5,30 @@ import frappe
 from frappe.model.document import Document
 
 
-# Combinaciones válidas de formato y criterio de desempate
+# Combinaciones validas de formato y criterio de desempate.
+# Estos valores deben coincidir exactamente con las options del campo
+# criterio_de_desempate definidas en formato_de_torneo.json.
 _CRITERIOS_VALIDOS = {
 	"Stroke Play": (
-		"Mejor última ronda",
-		"Menor hándicap",
-		"Mejor última ronda, luego menor hándicap",
+		"Mejor ultima ronda",
+		"Menor handicap",
+		"Mejor ultima ronda, luego menor handicap",
 	),
 	"Match Play": (
-		"Mejor última ronda",
-		"Menor hándicap",
-		"Mejor última ronda, luego menor hándicap",
+		"Mejor ultima ronda",
+		"Menor handicap",
+		"Mejor ultima ronda, luego menor handicap",
 	),
 	"Stableford": (
-		"Mejor última ronda",
-		"Menor hándicap",
-		"Mejor última ronda, luego menor hándicap",
+		"Mejor ultima ronda",
+		"Menor handicap",
+		"Mejor ultima ronda, luego menor handicap",
 	),
 }
 
 
 class formatodetorneo(Document):
-	#  Lifecycle hooks
+	# Lifecycle hooks
 
 	def validate(self):
 		self._validar_unicidad_nombre()
@@ -36,7 +38,7 @@ class formatodetorneo(Document):
 	def on_trash(self):
 		self._verificar_sin_torneos()
 
-	#  Validaciones
+	# Validaciones
 
 	def _validar_unicidad_nombre(self):
 		existente = frappe.db.get_value(
@@ -64,7 +66,7 @@ class formatodetorneo(Document):
 	def _normalizar_nombre(self):
 		self.nombre = self.nombre.strip()
 
-	#  Protección de borrado
+	# Proteccion de borrado
 
 	def _verificar_sin_torneos(self):
 		torneos = frappe.get_all(
@@ -77,6 +79,6 @@ class formatodetorneo(Document):
 			nombres = ", ".join(t.nombre_del_torneo for t in torneos)
 			frappe.throw(
 				frappe._(
-					"No se puede eliminar el formato '{0}' porque está en uso por los siguientes torneos: {1}."
+					"No se puede eliminar el formato '{0}' porque esta en uso por los siguientes torneos: {1}."
 				).format(self.nombre, nombres)
 			)

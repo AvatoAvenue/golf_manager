@@ -30,8 +30,8 @@ _USUARIOS = [
     (f"{_PREFIJO}.jugador12@example.com",   "Diana Ibanez",          "jugador"),
 ]
 
-_CAMPO        = "Club de Golf Las Palomas"
-_FMT_STROKE   = "Stroke Play Estandar"
+_CAMPO         = "Club de Golf Las Palomas"
+_FMT_STROKE    = "Stroke Play Estandar"
 _TORNEO_NOMBRE = "Torneo de Prueba 2026"
 
 _PARTICIPACIONES = [
@@ -49,7 +49,7 @@ _PARTICIPACIONES = [
     (f"{_PREFIJO}.jugador12@example.com", "Dama",      22.0),
 ]
 
-_PARES = [4,3,5,4,4,3,5,4,4, 4,3,5,4,4,3,5,4,4]
+_PARES = [4, 3, 5, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4, 4]
 
 _SCORES = {
     f"{_PREFIJO}.jugador01@example.com": [4,3,4,4,4,3,5,4,4, 4,2,5,4,4,3,5,4,4],
@@ -66,6 +66,7 @@ _SCORES = {
     f"{_PREFIJO}.jugador12@example.com": [6,4,5,5,5,4,6,5,5, 5,4,5,5,5,4,5,5,5],
 }
 
+
 def execute():
     frappe.logger().info("Golf Manager: cargando datos de prueba...")
     _crear_usuarios()
@@ -77,10 +78,10 @@ def execute():
     _registrar_puntuaciones(ronda1, torneo_name)
     _completar_ronda(ronda1)
     frappe.db.commit()
-    print(f"\nListo.")
+    print("\nListo.")
     print(f"  torneo name  : {torneo_name}")
     print(f"  ronda 1 name : {ronda1}")
-    print(f"  password     : Test@12345\n")
+    print("  password     : Test@12345\n")
 
 
 def _crear_usuarios():
@@ -124,11 +125,16 @@ def _crear_torneo():
     if existente:
         return existente
 
+    # Reusar el formato creado por insertar_datos_iniciales si ya existe.
+    # Si no existe todavia (entorno limpio sin haber corrido la migracion),
+    # lo creamos aqui con ignore_validate para no depender del orden de ejecucion.
     if not frappe.db.exists("formato de torneo", _FMT_STROKE):
         f = frappe.new_doc("formato de torneo")
-        f.nombre               = _FMT_STROKE
-        f.tipo_de_formato      = "Stroke Play"
+        f.nombre                   = _FMT_STROKE
+        f.tipo_de_formato          = "Stroke Play"
         f.aplica_handicap_ajustado = 0
+        # Debe coincidir exactamente con _CRITERIOS_VALIDOS en formato_de_torneo.py
+        # y con las options del campo en formato_de_torneo.json
         f.criterio_de_desempate    = "Mejor ultima ronda, luego menor handicap"
         f.flags.ignore_permissions = True
         f.insert()
@@ -285,17 +291,18 @@ def _recalcular_ranking(torneo_name):
     )
     pos = 1
     for i, r in enumerate(rows):
-        if i > 0 and r.puntuacion_total_acumulada == rows[i-1].puntuacion_total_acumulada:
-            p = rows[i-1]._p
+        if i > 0 and r.puntuacion_total_acumulada == rows[i - 1].puntuacion_total_acumulada:
+            p = rows[i - 1]._p
         else:
             p = pos
         r._p = p
-        pos = i + 2
+        pos  = i + 2
     for r in rows:
         frappe.db.set_value(
             "participacion en torneo", r.name,
             "posicion_en_ranking", r._p, update_modified=False
         )
+
 
 def revert():
     torneo_name = frappe.db.get_value(
@@ -305,8 +312,8 @@ def revert():
         for r in frappe.get_all("ronda", filters={"torneo": torneo_name}, pluck="name"):
             frappe.db.delete("puntuacion por hoyo", {"ronda": r})
             frappe.db.delete("grupo por ronda",     {"ronda": r})
-        frappe.db.delete("ronda",                    {"torneo": torneo_name})
-        frappe.db.delete("participacion en torneo",  {"torneo": torneo_name})
+        frappe.db.delete("ronda",                   {"torneo": torneo_name})
+        frappe.db.delete("participacion en torneo", {"torneo": torneo_name})
         doc = frappe.get_doc("torneo de golf", torneo_name)
         if doc.docstatus == 1:
             doc.flags.ignore_permissions = True
@@ -315,6 +322,9 @@ def revert():
 
     if frappe.db.exists("campo de golf", _CAMPO):
         frappe.delete_doc("campo de golf", _CAMPO, force=True)
+
+    if frappe.db.exists("formato de torneo", _FMT_STROKE):
+        frappe.delete_doc("formato de torneo", _FMT_STROKE, force=True)
 
     for email, _, _ in _USUARIOS:
         if frappe.db.exists("User", email):

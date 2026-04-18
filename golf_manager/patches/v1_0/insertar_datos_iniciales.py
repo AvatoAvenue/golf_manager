@@ -1,13 +1,13 @@
 """
-Patch de migración que inserta los datos de catálogo mínimos
-para que el módulo sea operativo desde la primera instalación.
+Patch de migracion que inserta los datos de catalogo minimos
+para que el modulo sea operativo desde la primera instalacion.
 
-Catálogos insertados:
-- 3 Formatos de torneo estándar (Stroke Play, Match Play, Stableford)
+Catalogos insertados:
+- 3 Formatos de torneo estandar (Stroke Play, Match Play, Stableford)
 - 1 Campo de golf de ejemplo
 
-Ejecutar manualmente (si es necesario):
-    bench execute golf_manager.golf_manager.patches.v1_0.insertar_datos_iniciales.execute
+Ejecutar manualmente:
+    bench execute golf_manager.patches.v1_0.insertar_datos_iniciales.execute
 """
 
 import frappe
@@ -19,37 +19,40 @@ def execute():
 	frappe.db.commit()
 
 
-#  Formatos de torneo                                                      #
+# Formatos de torneo
 
+# Los valores de criterio_de_desempate deben coincidir exactamente con
+# las options definidas en formato_de_torneo.json y con _CRITERIOS_VALIDOS
+# en formato_de_torneo.py.
 _FORMATOS = [
 	{
-		"nombre": "Stroke Play Estándar",
+		"nombre": "Stroke Play Estandar",
 		"tipo_de_formato": "Stroke Play",
 		"aplica_handicap_ajustado": 0,
-		"criterio_de_desempate": "Mejor última ronda, luego menor hándicap",
+		"criterio_de_desempate": "Mejor ultima ronda, luego menor handicap",
 		"descripcion_de_reglas": (
 			"Modalidad de juego en la que se cuentan el total de golpes de todas "
 			"las rondas. Gana el jugador con menos golpes al final del torneo."
 		),
 	},
 	{
-		"nombre": "Match Play Estándar",
+		"nombre": "Match Play Estandar",
 		"tipo_de_formato": "Match Play",
 		"aplica_handicap_ajustado": 0,
-		"criterio_de_desempate": "Mejor última ronda",
+		"criterio_de_desempate": "Mejor ultima ronda",
 		"descripcion_de_reglas": (
 			"Modalidad en la que se compara el resultado hoyo a hoyo entre "
-			"dos jugadores. Gana quien gana más hoyos."
+			"dos jugadores. Gana quien gana mas hoyos."
 		),
 	},
 	{
-		"nombre": "Stableford Estándar",
+		"nombre": "Stableford Estandar",
 		"tipo_de_formato": "Stableford",
 		"aplica_handicap_ajustado": 1,
-		"criterio_de_desempate": "Mejor última ronda, luego menor hándicap",
+		"criterio_de_desempate": "Mejor ultima ronda, luego menor handicap",
 		"descripcion_de_reglas": (
-			"Sistema de puntuación por hoyos: Eagle=4, Birdie=3, Par=2, "
-			"Bogey=1, Doble bogey o más=0. Gana quien acumula más puntos."
+			"Sistema de puntuacion por hoyos: Eagle=4, Birdie=3, Par=2, "
+			"Bogey=1, Doble bogey o mas=0. Gana quien acumula mas puntos."
 		),
 	},
 ]
@@ -62,12 +65,12 @@ def _insertar_formatos():
 		doc = frappe.new_doc("formato de torneo")
 		doc.update(datos)
 		doc.flags.ignore_permissions = True
-		doc.flags.ignore_mandatory = False
+		doc.flags.ignore_mandatory   = False
 		doc.insert()
-		frappe.logger().info(f"Golf Manager: formato insertado → {datos['nombre']}")
+		frappe.logger().info(f"Golf Manager: formato insertado -> {datos['nombre']}")
 
 
-#  Campo de golf de ejemplo                                                #
+# Campo de golf de ejemplo
 
 _CAMPO_EJEMPLO = {
 	"nombre": "Campo de Ejemplo",
@@ -75,7 +78,7 @@ _CAMPO_EJEMPLO = {
 	"par_total": 72,
 	"ubicacion": "Por configurar",
 	"descripcion": (
-		"Campo de golf de ejemplo creado automáticamente durante la instalación. "
+		"Campo de golf de ejemplo creado automaticamente durante la instalacion. "
 		"Edite este registro con los datos reales del campo."
 	),
 }
