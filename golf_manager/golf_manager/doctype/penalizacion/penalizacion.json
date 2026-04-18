@@ -1,0 +1,50 @@
+{
+  "actions": [],
+  "allow_rename": 0,
+  "creation": "2026-03-31 14:01:27.666155",
+  "doctype": "DocType",
+  "editable_grid": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "motivo",
+    "golpes_adicionales"
+  ],
+  "fields": [
+    {
+      "fieldname": "motivo",
+      "fieldtype": "Select",
+      "label": "Motivo",
+      "options": "Bola fuera de límites\nBola perdida\nHazard de agua\nHazard lateral\nObstrucción inmovible\nObstrucción movible\nTerraplay incorrecto\nOtro",
+      "reqd": 1,
+      "in_list_view": 1,
+      "columns": 8,
+      "bold": 1
+    },
+    {
+      "fieldname": "golpes_adicionales",
+      "fieldtype": "Int",
+      "label": "Golpes adicionales",
+      "reqd": 1,
+      "in_list_view": 1,
+      "columns": 4,
+      "default": "1",
+      "non_negative": 1,
+      "description": "Se suman automáticamente a los golpes brutos del hoyo"
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 0,
+  "istable": 1,
+  "links": [],
+  "modified": "2026-03-31 14:01:27.666155",
+  "modified_by": "Administrator",
+  "module": "Golf Manager",
+  "name": "penalizacion",
+  "owner": "Administrator",
+  "permissions": [],
+  "row_format": "Dynamic",
+  "rows_threshold_for_grid_search": 20,
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": []
+}

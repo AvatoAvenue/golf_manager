@@ -1,0 +1,122 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-03-31 13:58:39.723249",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "nombre",
+    "tipo_de_formato",
+    "aplica_handicap_ajustado",
+    "column_break_1",
+    "criterio_de_desempate",
+    "descripcion_de_reglas"
+  ],
+  "fields": [
+    {
+      "fieldname": "nombre",
+      "fieldtype": "Data",
+      "label": "Nombre del formato",
+      "reqd": 1,
+      "in_list_view": 1,
+      "bold": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "tipo_de_formato",
+      "fieldtype": "Select",
+      "label": "Tipo de formato",
+      "options": "Stroke Play\nMatch Play\nStableford",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "aplica_handicap_ajustado",
+      "fieldtype": "Check",
+      "label": "Aplica handicap ajustado",
+      "default": "0"
+    },
+    {
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "criterio_de_desempate",
+      "fieldtype": "Select",
+      "label": "Criterio de desempate",
+      "options": "Mejor ultima ronda\nMenor handicap\nMejor ultima ronda, luego menor handicap",
+      "reqd": 1
+    },
+    {
+      "fieldname": "descripcion_de_reglas",
+      "fieldtype": "Text Editor",
+      "label": "Descripcion de reglas"
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2026-03-31 13:58:39.723249",
+  "modified_by": "Administrator",
+  "module": "Golf Manager",
+  "name": "formato de torneo",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "administrador",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 0,
+      "role": "Staff",
+      "share": 0,
+      "write": 0
+    },
+    {
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 0,
+      "role": "jugador",
+      "share": 0,
+      "write": 0
+    }
+  ],
+  "row_format": "Dynamic",
+  "rows_threshold_for_grid_search": 20,
+  "search_fields": "nombre,tipo_de_formato",
+  "sort_field": "nombre",
+  "sort_order": "ASC",
+  "states": [],
+  "title_field": "nombre",
+  "autoname": "field:nombre"
+}

@@ -1,0 +1,117 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-03-31 14:00:28.422095",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "ronda",
+    "nombre_del_grupo",
+    "hora_de_salida",
+    "column_break_1",
+    "jugadores"
+  ],
+  "fields": [
+    {
+      "fieldname": "ronda",
+      "fieldtype": "Link",
+      "label": "Ronda",
+      "options": "ronda",
+      "reqd": 1,
+      "in_list_view": 1,
+      "bold": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "nombre_del_grupo",
+      "fieldtype": "Data",
+      "label": "Nombre del grupo",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "hora_de_salida",
+      "fieldtype": "Time",
+      "label": "Hora de salida",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "jugadores",
+      "fieldtype": "Table",
+      "label": "Jugadores",
+      "options": "jugador en grupo",
+      "reqd": 1
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2026-03-31 14:00:28.422095",
+  "modified_by": "Administrator",
+  "module": "Golf Manager",
+  "name": "grupo por ronda",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "administrador",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Staff",
+      "share": 0,
+      "write": 0
+    },
+    {
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "jugador",
+      "share": 0,
+      "write": 0
+    }
+  ],
+  "row_format": "Dynamic",
+  "rows_threshold_for_grid_search": 20,
+  "search_fields": "ronda,nombre_del_grupo",
+  "sort_field": "hora_de_salida",
+  "sort_order": "ASC",
+  "states": [],
+  "title_field": "nombre_del_grupo",
+  "autoname": "format:{ronda}-{nombre_del_grupo}"
+}

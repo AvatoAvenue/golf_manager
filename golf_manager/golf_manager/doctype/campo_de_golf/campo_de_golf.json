@@ -1,0 +1,123 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-03-31 13:57:43.420094",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "nombre",
+    "numero_de_hoyos",
+    "par_total",
+    "column_break_1",
+    "ubicacion",
+    "descripcion"
+  ],
+  "fields": [
+    {
+      "fieldname": "nombre",
+      "fieldtype": "Data",
+      "label": "Nombre del campo",
+      "reqd": 1,
+      "in_list_view": 1,
+      "bold": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "numero_de_hoyos",
+      "fieldtype": "Int",
+      "label": "Numero de hoyos",
+      "reqd": 1,
+      "default": "18",
+      "non_negative": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "par_total",
+      "fieldtype": "Int",
+      "label": "Par total",
+      "reqd": 1,
+      "non_negative": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "ubicacion",
+      "fieldtype": "Data",
+      "label": "Ubicacion / Direccion"
+    },
+    {
+      "fieldname": "descripcion",
+      "fieldtype": "Small Text",
+      "label": "Descripcion"
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2026-03-31 13:57:43.420094",
+  "modified_by": "Administrator",
+  "module": "Golf Manager",
+  "name": "campo de golf",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "administrador",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Staff",
+      "share": 0,
+      "write": 0
+    },
+    {
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "jugador",
+      "share": 0,
+      "write": 0
+    }
+  ],
+  "row_format": "Dynamic",
+  "rows_threshold_for_grid_search": 20,
+  "search_fields": "nombre,ubicacion",
+  "sort_field": "nombre",
+  "sort_order": "ASC",
+  "states": [],
+  "title_field": "nombre",
+  "autoname": "field:nombre"
+}

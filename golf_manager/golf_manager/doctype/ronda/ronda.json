@@ -1,0 +1,134 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-03-31 13:59:37.711756",
+  "doctype": "DocType",
+  "editable_grid": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "torneo",
+    "numero_de_ronda",
+    "estado",
+    "column_break_1",
+    "fecha"
+  ],
+  "fields": [
+    {
+      "fieldname": "torneo",
+      "fieldtype": "Link",
+      "label": "Torneo",
+      "options": "torneo de golf",
+      "reqd": 1,
+      "in_list_view": 1,
+      "bold": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "numero_de_ronda",
+      "fieldtype": "Int",
+      "label": "Numero de ronda",
+      "reqd": 1,
+      "in_list_view": 1,
+      "non_negative": 1
+    },
+    {
+      "fieldname": "estado",
+      "fieldtype": "Select",
+      "label": "Estado",
+      "options": "Pendiente\nEn curso\nCompletada",
+      "default": "Pendiente",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "fecha",
+      "fieldtype": "Date",
+      "label": "Fecha",
+      "reqd": 1,
+      "in_list_view": 1
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2026-04-01 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Golf Manager",
+  "name": "ronda",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "administrador",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Staff",
+      "share": 0,
+      "write": 0
+    },
+    {
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "jugador",
+      "share": 0,
+      "write": 0
+    }
+  ],
+  "row_format": "Dynamic",
+  "rows_threshold_for_grid_search": 20,
+  "search_fields": "torneo,numero_de_ronda",
+  "sort_field": "fecha",
+  "sort_order": "ASC",
+  "states": [
+    {
+      "color": "Gray",
+      "title": "Pendiente"
+    },
+    {
+      "color": "Yellow",
+      "title": "En curso"
+    },
+    {
+      "color": "Green",
+      "title": "Completada"
+    }
+  ],
+  "title_field": "torneo",
+  "autoname": "format:{torneo} - R{numero_de_ronda}"
+}

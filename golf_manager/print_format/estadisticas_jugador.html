@@ -1,0 +1,179 @@
+{#
+  Estadísticas de Desempeño
+  Anclada a: participacion en torneo
+  Muestra métricas del jugador en ese torneo específico.
+#}
+
+{%- set torneo_doc  = frappe.get_doc("torneo de golf", doc.torneo) -%}
+{%- set campo_doc   = frappe.get_doc("Campo de golf", torneo_doc.campo_de_golf) -%}
+{%- set formato_doc = frappe.get_doc("formato de torneo", torneo_doc.formato) -%}
+{%- set nombre      = frappe.db.get_value("User", doc.jugador, "full_name") or doc.jugador -%}
+
+{# Rondas del torneo #}
+{%- set rondas = frappe.get_all("ronda",
+      filters={"torneo": doc.torneo},
+      fields=["name","numero_de_ronda","fecha","estado"],
+      order_by="numero_de_ronda asc") -%}
+
+{# Puntuaciones de todas las rondas #}
+{%- set todas_puntuaciones = frappe.get_all("puntuacion por hoyo",
+      filters={"jugador": doc.jugador, "ronda": ("in", rondas | map(attribute="name") | list)},
+      fields=["ronda","numero_de_hoyo","golpes_brutos","golpes_totales",
+              "par_del_hoyo","puntos_stableford","flag_penalizacion"]) -%}
+
+{# Calcular estadísticas #}
+{%- set ns = namespace(
+      total_golpes=0, total_pars=0, total_stab=0,
+      hoyos_con_pen=0, total_pen_golpes=0,
+      eagles=0, birdies=0, pares=0, bogeys=0, dobles=0, peores=0,
+      mejor_ronda=None, mejor_ronda_score=9999,
+      peor_ronda=None,  peor_ronda_score=0
+) -%}
+
+{%- set scores_por_ronda = {} -%}
+{%- for r in rondas -%}{%- set _ = scores_por_ronda.update({r.name: 0}) -%}{%- endfor -%}
+
+{%- for p in todas_puntuaciones -%}
+  {%- set g = p.golpes_totales if p.golpes_totales else (p.golpes_brutos or 0) -%}
+  {%- set par = p.par_del_hoyo or 4 -%}
+  {%- set diff = g - par -%}
+  {%- set ns.total_golpes = ns.total_golpes + g -%}
+  {%- set ns.total_pars   = ns.total_pars + par -%}
+  {%- set ns.total_stab   = ns.total_stab + (p.puntos_stableford or 0) -%}
+  {%- if p.flag_penalizacion -%}{%- set ns.hoyos_con_pen = ns.hoyos_con_pen + 1 -%}{%- endif -%}
+  {%- if diff <= -2 -%}{%- set ns.eagles  = ns.eagles  + 1 -%}
+  {%- elif diff == -1 -%}{%- set ns.birdies = ns.birdies + 1 -%}
+  {%- elif diff == 0 -%}{%- set ns.pares   = ns.pares   + 1 -%}
+  {%- elif diff == 1 -%}{%- set ns.bogeys  = ns.bogeys  + 1 -%}
+  {%- elif diff == 2 -%}{%- set ns.dobles  = ns.dobles  + 1 -%}
+  {%- else -%}{%- set ns.peores = ns.peores + 1 -%}{%- endif -%}
+  {%- if p.ronda in scores_por_ronda -%}
+    {%- set _ = scores_por_ronda.update({p.ronda: scores_por_ronda[p.ronda] + g}) -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- set hoyos_jugados = todas_puntuaciones | length -%}
+{%- set prom_golpes = (ns.total_golpes / hoyos_jugados) | round(2) if hoyos_jugados > 0 else 0 -%}
+
+{# Mejor/peor ronda #}
+{%- for r in rondas -%}
+  {%- set score = scores_por_ronda.get(r.name, 0) -%}
+  {%- if score > 0 -%}
+    {%- if score < ns.mejor_ronda_score -%}
+      {%- set ns.mejor_ronda_score = score -%}
+      {%- set ns.mejor_ronda = r -%}
+    {%- endif -%}
+    {%- if score > ns.peor_ronda_score -%}
+      {%- set ns.peor_ronda_score = score -%}
+      {%- set ns.peor_ronda = r -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #111; }
+  .rpt-header { border-bottom: 2px solid #1a5276; padding-bottom: 8px; margin-bottom: 14px; }
+  .rpt-header h1 { font-size: 15pt; color: #1a5276; margin: 0 0 3px; }
+  .rpt-header .sub { font-size: 9.5pt; color: #555; }
+  .player-box { background: #eaf3fb; border-radius: 4px; padding: 8px 14px;
+                display: grid; grid-template-columns: repeat(4,1fr); gap: 8px;
+                font-size: 9pt; margin-bottom: 14px; }
+  .player-box .key { color: #666; }
+  .player-box .val { font-weight: bold; font-size: 11pt; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
+  .kpi { background: #f8f8f8; border: 1px solid #dde; border-radius: 4px;
+         padding: 8px 12px; text-align: center; }
+  .kpi .num { font-size: 18pt; font-weight: bold; color: #1a5276; }
+  .kpi .lbl { font-size: 8.5pt; color: #666; }
+  h2 { font-size: 11pt; color: #1a5276; margin: 14px 0 4px; border-bottom: 1px solid #c0d8ee; }
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 10px; }
+  th { background: #2e86c1; color: #fff; padding: 4px 7px; text-align: left; }
+  td { padding: 4px 7px; border-bottom: 1px solid #dde; }
+  tr:nth-child(even) td { background: #f4f8fc; }
+  .bar-wrap { background: #e8e8e8; border-radius: 2px; height: 10px; width: 100%; }
+  .bar-fill { background: #2e86c1; height: 10px; border-radius: 2px; }
+  .rpt-footer { margin-top: 18px; font-size: 8pt; color: #888; text-align: center;
+                border-top: 1px solid #ccc; padding-top: 5px; }
+</style>
+
+<div class="rpt-header">
+  <h1>Estadísticas de Desempeño</h1>
+  <div class="sub">
+    {{ torneo_doc.nombre_del_torneo }} &nbsp;·&nbsp; {{ campo_doc.nombre }} &nbsp;·&nbsp;
+    {{ frappe.format(torneo_doc.fecha_de_inicio, {"fieldtype":"Date"}) }} –
+    {{ frappe.format(torneo_doc.fecha_de_fin, {"fieldtype":"Date"}) }}
+  </div>
+</div>
+
+<div class="player-box">
+  <div><div class="key">Jugador</div><div class="val">{{ nombre }}</div></div>
+  <div><div class="key">Categoría</div><div class="val">{{ doc.categoria }}</div></div>
+  <div><div class="key">Hándicap</div><div class="val">{{ doc.handicap_inscripcion }}</div></div>
+  <div><div class="key">Posición final</div><div class="val">{{ doc.posicion_en_ranking or "—" }}</div></div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="num">{{ ns.total_golpes }}</div><div class="lbl">Golpes totales</div></div>
+  <div class="kpi"><div class="num">{{ prom_golpes }}</div><div class="lbl">Promedio por hoyo</div></div>
+  <div class="kpi"><div class="num">{{ ns.total_stab }}</div><div class="lbl">Puntos Stableford</div></div>
+  <div class="kpi"><div class="num">{{ hoyos_jugados }}</div><div class="lbl">Hoyos jugados</div></div>
+  <div class="kpi"><div class="num">{{ ns.hoyos_con_pen }}</div><div class="lbl">Hoyos con penalización</div></div>
+  <div class="kpi"><div class="num">{{ ns.mejor_ronda_score if ns.mejor_ronda else "—" }}</div><div class="lbl">Mejor ronda (golpes)</div></div>
+</div>
+
+<h2>Distribución de resultados por hoyo</h2>
+{%- set total_h = hoyos_jugados or 1 -%}
+<table>
+  <thead><tr><th>Resultado</th><th>Cantidad</th><th style="width:40%">Distribución</th><th>%</th></tr></thead>
+  <tbody>
+    {%- for fila in [
+        ("Eagle o mejor", ns.eagles,  "#27ae60"),
+        ("Birdie",        ns.birdies, "#2980b9"),
+        ("Par",           ns.pares,   "#1a5276"),
+        ("Bogey",         ns.bogeys,  "#e67e22"),
+        ("Doble bogey",   ns.dobles,  "#e74c3c"),
+        ("+3 o más",      ns.peores,  "#922b21"),
+    ] -%}
+    <tr>
+      <td>{{ fila[0] }}</td>
+      <td style="text-align:center">{{ fila[1] }}</td>
+      <td>
+        <div class="bar-wrap">
+          <div class="bar-fill" style="width:{{ ((fila[1]/total_h)*100)|round(1) }}%;background:{{ fila[2] }}"></div>
+        </div>
+      </td>
+      <td style="text-align:right">{{ ((fila[1]/total_h)*100)|round(1) }}%</td>
+    </tr>
+    {%- endfor -%}
+  </tbody>
+</table>
+
+<h2>Puntuación por ronda</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Ronda</th><th>Fecha</th><th style="text-align:center">Golpes</th>
+      <th style="text-align:center">Stableford</th><th>Estado</th>
+    </tr>
+  </thead>
+  <tbody>
+    {%- for r in rondas -%}
+    {%- set ronda_puns = todas_puntuaciones | selectattr("ronda","equalto",r.name) | list -%}
+    {%- set rg = ronda_puns | map(attribute="golpes_totales") | select | sum
+               + ronda_puns | selectattr("golpes_totales","none") | map(attribute="golpes_brutos") | select | sum -%}
+    {%- set rs = ronda_puns | map(attribute="puntos_stableford") | select | sum -%}
+    <tr>
+      <td>Ronda {{ r.numero_de_ronda }}</td>
+      <td>{{ frappe.format(r.fecha, {"fieldtype":"Date"}) }}</td>
+      <td style="text-align:center"><strong>{{ rg or "—" }}</strong></td>
+      <td style="text-align:center">{{ rs }}</td>
+      <td>{{ r.estado }}</td>
+    </tr>
+    {%- endfor -%}
+  </tbody>
+</table>
+
+<div class="rpt-footer">
+  {{ nombre }} &nbsp;·&nbsp; {{ torneo_doc.nombre_del_torneo }} &nbsp;·&nbsp;
+  Generado el {{ frappe.format(frappe.utils.now(), {"fieldtype":"Datetime"}) }}
+</div>

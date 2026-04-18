@@ -1,0 +1,93 @@
+{%- set todas = frappe.get_all(
+		"participacion en torneo",
+		filters={"torneo": doc.name},
+		fields=["jugador","categoria","handicap_inscripcion",
+		        "puntuacion_total_acumulada","posicion_en_ranking"],
+		order_by="categoria asc, posicion_en_ranking asc"
+) -%}
+
+{%- set campo = frappe.get_doc("Campo de golf", doc.campo_de_golf) -%}
+{%- set formato_doc = frappe.get_doc("formato de torneo", doc.formato) -%}
+
+{# Agrupar por categoría manteniendo orden #}
+{%- set categorias = [] -%}
+{%- for p in todas -%}
+  {%- if p.categoria not in categorias -%}
+    {%- set _ = categorias.append(p.categoria) -%}
+  {%- endif -%}
+{%- endfor -%}
+
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #1a1a1a; }
+  .rpt-header { text-align: center; margin-bottom: 14px; border-bottom: 2px solid #1a5276; padding-bottom: 8px; }
+  .rpt-header h1 { font-size: 17pt; margin: 0 0 4px; color: #1a5276; }
+  .rpt-header .sub { font-size: 10pt; color: #555; }
+  .cat-header { background: #1a5276; color: #fff; padding: 5px 10px;
+                font-size: 12pt; font-weight: bold; margin: 16px 0 0;
+                border-radius: 3px 3px 0 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+  thead th { background: #2e86c1; color: #fff; padding: 5px 8px; text-align: left; }
+  thead th.num { text-align: center; }
+  tbody tr:nth-child(even) { background: #f4f8fc; }
+  tbody td { padding: 5px 8px; border-bottom: 1px solid #dde; }
+  tbody td.num { text-align: center; }
+  .pos-1 { font-weight: bold; color: #b8860b; }
+  .pos-2 { font-weight: bold; color: #707070; }
+  .pos-3 { font-weight: bold; color: #8b4513; }
+  .page-break { page-break-after: always; }
+  .rpt-footer { margin-top: 20px; font-size: 8pt; color: #888; text-align: center;
+                border-top: 1px solid #ccc; padding-top: 6px; }
+</style>
+
+<div class="rpt-header">
+  <h1>Ranking por Categoría — {{ doc.nombre_del_torneo }}</h1>
+  <div class="sub">
+    {{ campo.nombre }} &nbsp;|&nbsp;
+    {{ frappe.format(doc.fecha_de_inicio, {"fieldtype":"Date"}) }} –
+    {{ frappe.format(doc.fecha_de_fin,    {"fieldtype":"Date"}) }} &nbsp;|&nbsp;
+    Formato: {{ formato_doc.tipo_de_formato }}
+  </div>
+</div>
+
+{%- for cat in categorias -%}
+{%- set jugadores = todas | selectattr("categoria","equalto",cat) | list -%}
+
+{# Recalcular posición dentro de la categoría #}
+{%- set jugadores_sorted = jugadores | sort(attribute="posicion_en_ranking") -%}
+
+<div class="cat-header">{{ cat }} &nbsp;<small style="font-weight:normal;font-size:10pt">({{ jugadores_sorted|length }} participantes)</small></div>
+<table>
+  <thead>
+    <tr>
+      <th class="num" style="width:40px">#</th>
+      <th>Jugador</th>
+      <th class="num">Hcp</th>
+      <th class="num">Puntuación</th>
+    </tr>
+  </thead>
+  <tbody>
+    {%- for p in jugadores_sorted -%}
+    {%- set nombre = frappe.db.get_value("User", p.jugador, "full_name") or p.jugador -%}
+    {%- set pos_cat = loop.index -%}
+    <tr>
+      <td class="num
+        {%- if pos_cat == 1 %} pos-1
+        {%- elif pos_cat == 2 %} pos-2
+        {%- elif pos_cat == 3 %} pos-3{% endif %}">
+        {{ pos_cat }}
+      </td>
+      <td>{{ nombre }}</td>
+      <td class="num">{{ p.handicap_inscripcion }}</td>
+      <td class="num"><strong>{{ p.puntuacion_total_acumulada or "—" }}</strong></td>
+    </tr>
+    {%- endfor -%}
+  </tbody>
+</table>
+
+{%- if not loop.last %}<div class="page-break"></div>{%- endif -%}
+{%- endfor -%}
+
+<div class="rpt-footer">
+  Generado el {{ frappe.format(frappe.utils.now(), {"fieldtype":"Datetime"}) }} &nbsp;·&nbsp;
+  Golf Manager — {{ doc.nombre_del_torneo }}
+</div>

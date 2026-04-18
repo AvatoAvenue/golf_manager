@@ -1,0 +1,145 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-03-31 13:59:59.453537",
+  "doctype": "DocType",
+  "editable_grid": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "torneo",
+    "jugador",
+    "categoria",
+    "column_break_1",
+    "handicap_inscripcion",
+    "posicion_en_ranking",
+    "section_resultados",
+    "puntuacion_total_acumulada"
+  ],
+  "fields": [
+    {
+      "fieldname": "torneo",
+      "fieldtype": "Link",
+      "label": "Torneo",
+      "options": "torneo de golf",
+      "reqd": 1,
+      "in_list_view": 1,
+      "bold": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "jugador",
+      "fieldtype": "Link",
+      "label": "Jugador",
+      "options": "User",
+      "reqd": 1,
+      "in_list_view": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "categoria",
+      "fieldtype": "Select",
+      "label": "Categoria",
+      "options": "Amateur A\nAmateur B\nAmateur C\nProfesional\nJuvenil\nDama",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "handicap_inscripcion",
+      "fieldtype": "Float",
+      "label": "Handicap al momento de inscripcion",
+      "reqd": 1,
+      "precision": "1"
+    },
+    {
+      "fieldname": "posicion_en_ranking",
+      "fieldtype": "Int",
+      "label": "Posicion en ranking",
+      "read_only": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "section_resultados",
+      "fieldtype": "Section Break",
+      "label": "Resultados"
+    },
+    {
+      "fieldname": "puntuacion_total_acumulada",
+      "fieldtype": "Float",
+      "label": "Puntuacion total acumulada",
+      "read_only": 1,
+      "precision": "2",
+      "description": "Calculada automaticamente a partir de las puntuaciones por hoyo"
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2026-04-01 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Golf Manager",
+  "name": "participacion en torneo",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "administrador",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Staff",
+      "share": 0,
+      "write": 1
+    },
+    {
+      "create": 0,
+      "delete": 0,
+      "email": 0,
+      "export": 1,
+      "if_owner": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "jugador",
+      "share": 0,
+      "write": 0
+    }
+  ],
+  "row_format": "Dynamic",
+  "rows_threshold_for_grid_search": 20,
+  "search_fields": "torneo,jugador,categoria",
+  "sort_field": "posicion_en_ranking",
+  "sort_order": "ASC",
+  "states": [],
+  "title_field": "jugador",
+  "autoname": "format:{torneo}-{jugador}"
+}

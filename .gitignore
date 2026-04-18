@@ -1,0 +1,45 @@
+*.pyc
+tags
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Frappe specific
+*.log
+*.pid
+*.pid.*
+*.sqlite*
+*.lock
+*.egg-info/
+dist/
+build/
+*.db
+*.pot
+*.mo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node modules and assets
+node_modules/
+*.js.map
+*.css.map
+public/assets/
+assets/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Backup files
+*.bak
+*.orig
