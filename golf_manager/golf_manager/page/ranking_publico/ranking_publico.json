@@ -1,0 +1,14 @@
+{
+  "doctype": "Page",
+  "name": "ranking-publico",
+  "page_name": "ranking-publico",
+  "title": "Ranking Público",
+  "module": "Golf Manager",
+  "standard": "Yes",
+  "roles": [
+    { "role": "System Manager" },
+    { "role": "administrador" },
+    { "role": "Staff" },
+    { "role": "jugador" }
+  ]
+}

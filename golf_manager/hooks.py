@@ -30,6 +30,10 @@ fixtures = [
 		"doctype": "Print Format",
 		"filters": [["module", "in", ("Golf Manager",)]],
 	},
+	{
+		"doctype": "Page",
+		"filters": [["module", "in", ("Golf Manager",)]],
+	},
 ]
 
 # Scheduled Tasks
@@ -51,17 +55,6 @@ doctype_js = {
 	"torneo de golf":      "golf_manager/doctype/torneo_de_golf/torneo_de_golf.js",
 	"puntuacion por hoyo": "golf_manager/doctype/puntuacion_por_hoyo/puntuacion_por_hoyo.js",
 	"ronda":               "golf_manager/doctype/ronda/ronda.js",
-}
-
-# Website Routes
-
-website_route_rules = [
-	{"from_route": "/ranking", "to_route": "ranking"},
-]
-
-# Desactivar cache para la pagina de ranking
-website_context = {
-	"no_cache": 1,
 }
 
 # Permission query conditions

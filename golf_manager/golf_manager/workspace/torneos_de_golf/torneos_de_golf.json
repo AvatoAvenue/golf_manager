@@ -234,8 +234,8 @@
       "color": "Green",
       "doctype": "Workspace Shortcut",
       "label": "Ranking Publico",
-      "link_to": "ranking",
-      "type": "URL"
+      "link_to": "ranking-publico",
+      "type": "Page"
     }
   ],
   "title": "Torneos de golf"
