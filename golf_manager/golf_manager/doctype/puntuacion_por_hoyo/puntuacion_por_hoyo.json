@@ -69,7 +69,7 @@
     {
       "fieldname": "flag_penalizacion",
       "fieldtype": "Check",
-      "label": "Tiene penalizacion?",
+      "label": "¿Tiene penalización?",
       "default": "0"
     },
     {
