@@ -178,30 +178,12 @@ frappe.ui.form.on("torneo de golf", {
 
 
 function _descargar_pdf(frm, formato) {
-	frappe.db.get_value("Print Format", { name: formato }, "name")
-		.then((r) => {
-			if (!r || !r.message || !r.message.name) {
-				frappe.msgprint({
-					title:     __("Formato no instalado"),
-					message:   __('El Print Format <strong>{0}</strong> no está instalado.', [formato]),
-					indicator: "orange",
-				});
-				return;
-			}
-
-			const params = new URLSearchParams({
-				doctype:       "torneo de golf",
-				name:          frm.doc.name,
-				format:        formato,
-				no_letterhead: "1",
-				letterhead:    "No Letterhead",
-			});
-
-			window.open(
-				frappe.urllib.get_full_url(`/api/method/frappe.utils.print_format.download_pdf?${params}`),
-				"_blank"
-			);
-		});
+    const params = new URLSearchParams({
+        docname: frm.doc.name,
+        formato,
+        cmd: "golf_manager.golf_manager.pdf_export.descargar_pdf_torneo",
+    });
+    window.open(`/api/method/golf_manager.golf_manager.pdf_export.descargar_pdf_torneo?${params}`, "_blank");
 }
 
 

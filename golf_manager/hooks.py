@@ -71,5 +71,10 @@ has_permission = {
 	),
 }
 
+pdf_options = {
+    "load-error-handling": "ignore",
+    "load-media-error-handling": "ignore",
+}
+
 after_install = "golf_manager.setup.grant_role_permissions"
 after_migrate = "golf_manager.setup.grant_role_permissions"
