@@ -1,0 +1,106 @@
+{%- set campo_doc = frappe.get_doc("campo de golf", doc.campo_de_golf) -%}
+{%- set rondas = frappe.get_all("ronda",
+      filters={"torneo": doc.name},
+      fields=["name","numero_de_ronda","fecha","estado"],
+      order_by="numero_de_ronda asc") -%}
+
+<style>
+body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111; }
+.rpt-header { border-bottom: 2px solid #1a5276; padding-bottom: 8px; margin-bottom: 14px; }
+.rpt-header h1 { font-size: 15pt; color: #1a5276; margin: 0 0 3px; }
+.rpt-header .sub { font-size: 9.5pt; color: #555; }
+.ronda-header { background: #1a5276; color: #fff; padding: 5px 10px;
+                font-size: 11pt; font-weight: bold; margin: 16px 0 0;
+                border-radius: 3px 3px 0 0; }
+.ronda-meta { font-size: 8.5pt; font-weight: normal; opacity: .85; margin-left: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 9.5pt;
+        border: 1px solid #1a5276; border-top: none; margin-bottom: 4px; }
+th { background: #2e86c1; color: #fff; padding: 4px 8px; text-align: left; }
+td { padding: 4px 8px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+tr:nth-child(even) td { background: #f4f8fc; }
+.pill-pend { background:#dee2e6; color:#495057; padding:1px 6px; border-radius:3px; font-size:8pt; }
+.pill-run  { background:#fd7e14; color:#fff; padding:1px 6px; border-radius:3px; font-size:8pt; }
+.pill-ok   { background:#28a745; color:#fff; padding:1px 6px; border-radius:3px; font-size:8pt; }
+.empty-note { padding: 10px; text-align: center; color: #888; font-style: italic; }
+.page-break { page-break-before: always; break-before: page; }
+.rpt-footer { margin-top: 18px; font-size: 8pt; color: #888; text-align: center;
+              border-top: 1px solid #ccc; padding-top: 5px; }
+</style>
+
+<div class="rpt-header">
+  <h1>Brackets de Rondas — {{ doc.nombre_del_torneo }}</h1>
+  <div class="sub">
+    {{ campo_doc.nombre }} &nbsp;·&nbsp;
+    {{ frappe.format(doc.fecha_de_inicio, {"fieldtype":"Date"}) }} –
+    {{ frappe.format(doc.fecha_de_fin, {"fieldtype":"Date"}) }}
+    &nbsp;·&nbsp; Estado: <strong>{{ doc.estado }}</strong>
+  </div>
+</div>
+
+{%- for ronda in rondas -%}
+{%- if not loop.first %}<div class="page-break"></div>{%- endif -%}
+
+{%- set pill = "pill-pend" -%}
+{%- if ronda.estado == "En curso" -%}{%- set pill = "pill-run" -%}{%- endif -%}
+{%- if ronda.estado == "Completada" -%}{%- set pill = "pill-ok" -%}{%- endif -%}
+
+{%- set grupos = frappe.db.sql("""
+  SELECT g.name, g.nombre_del_grupo, g.hora_de_salida
+  FROM `tabgrupo por ronda` g
+  WHERE g.ronda = %s
+  ORDER BY g.hora_de_salida asc
+""", ronda.name, as_dict=True) -%}
+
+<div class="ronda-header">
+  Ronda {{ ronda.numero_de_ronda }}
+  <span class="{{ pill }}">{{ ronda.estado }}</span>
+  <span class="ronda-meta">{{ frappe.format(ronda.fecha, {"fieldtype":"Date"}) }}</span>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:40px">#</th>
+      <th style="width:160px">Grupo</th>
+      <th style="width:80px">Hora salida</th>
+      <th>Jugadores</th>
+    </tr>
+  </thead>
+  <tbody>
+    {%- if not grupos -%}
+    <tr><td class="empty-note" colspan="4">Sin grupos definidos para esta ronda.</td></tr>
+    {%- endif -%}
+    {%- for g in grupos -%}
+    {%- set jugadores = frappe.db.sql("""
+      SELECT u.full_name, pt.categoria, pt.handicap_inscripcion
+      FROM `tabjugador en grupo` j
+      JOIN `tabUser` u ON u.name = j.jugador
+      LEFT JOIN `tabparticipacion en torneo` pt
+        ON pt.jugador = j.jugador AND pt.torneo = %s
+      WHERE j.parent = %s
+      ORDER BY u.full_name
+    """, (doc.name, g.name), as_dict=True) -%}
+    <tr>
+      <td style="text-align:center">{{ loop.index }}</td>
+      <td><strong>{{ g.nombre_del_grupo }}</strong></td>
+      <td style="text-align:center">{{ g.hora_de_salida or "—" }}</td>
+      <td>
+        {%- for j in jugadores -%}
+          {{ j.full_name }}
+          <span style="font-size:8pt;color:#666">({{ j.categoria }}, Hcp {{ j.handicap_inscripcion }})</span>
+          {%- if not loop.last %}<br>{%- endif -%}
+        {%- endfor -%}
+        {%- if not jugadores -%}<span style="color:#ccc">—</span>{%- endif -%}
+      </td>
+    </tr>
+    {%- endfor -%}
+  </tbody>
+</table>
+{%- else -%}
+<p style="color:#888;font-style:italic;padding:10px">Este torneo no tiene rondas creadas.</p>
+{%- endfor -%}
+
+<div class="rpt-footer">
+  {{ doc.nombre_del_torneo }} &nbsp;·&nbsp; Brackets de rondas &nbsp;·&nbsp;
+  Generado el {{ frappe.format(frappe.utils.now(), {"fieldtype":"Datetime"}) }}
+</div>

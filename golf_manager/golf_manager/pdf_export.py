@@ -28,7 +28,7 @@ def descargar_pdf_torneo(docname, formato):
 
     options = dict(_PDF_OPTIONS)
     if formato in _FORMATOS_LANDSCAPE:
-        options["orientation"] = "Landscape"
+        options["orientation"] = "Portrait"
 
     pdf = get_pdf(html, options=options)
 
