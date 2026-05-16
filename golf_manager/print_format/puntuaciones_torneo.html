@@ -1,0 +1,618 @@
+{#
+  Print Format : puntuaciones_torneo
+  DocType      : torneo de golf
+#}
+
+{%- set filtro_grupo   = frappe.form_dict.get("grupo",     "") | string | trim -%}
+{%- set filtro_ronda_i = frappe.form_dict.get("ronda_idx", "") | string | trim -%}
+{%- set hay_filtro     = filtro_grupo | length > 0 -%}
+
+{%- set campo_doc   = frappe.get_doc("campo de golf",     doc.campo_de_golf) -%}
+{%- set formato_doc = frappe.get_doc("formato de torneo", doc.formato) -%}
+{%- set es_stab     = formato_doc.tipo_de_formato == "Stableford" -%}
+
+{%- set rondas_all = frappe.get_all(
+      "ronda",
+      filters  = {"torneo": doc.name},
+      fields   = ["name","numero_de_ronda","fecha","estado"],
+      order_by = "numero_de_ronda asc") -%}
+
+{%- if filtro_ronda_i | length > 0 -%}
+  {%- set ri = (filtro_ronda_i | int) - 1 -%}
+  {%- if ri >= 0 and ri < rondas_all | length -%}
+    {%- set rondas = [rondas_all[ri]] -%}
+  {%- else -%}
+    {%- set rondas = rondas_all -%}
+  {%- endif -%}
+{%- else -%}
+  {%- set rondas = rondas_all -%}
+{%- endif -%}
+
+{%- set participaciones_all = frappe.db.sql("""
+  SELECT pt.jugador, pt.categoria, pt.handicap_inscripcion,
+         pt.puntuacion_total_acumulada, pt.posicion_en_ranking,
+         u.full_name AS nombre_jugador
+  FROM `tabparticipacion en torneo` pt
+  LEFT JOIN `tabUser` u ON u.name = pt.jugador
+  WHERE pt.torneo = %s
+  ORDER BY pt.posicion_en_ranking ASC, pt.puntuacion_total_acumulada ASC
+""", doc.name, as_dict=True) -%}
+
+{%- set ronda_names_all = rondas_all | map(attribute="name") | list -%}
+{%- if ronda_names_all -%}
+  {%- set grupos_data = frappe.db.sql("""
+    SELECT g.ronda, g.nombre_del_grupo, g.hora_de_salida, j.jugador
+    FROM `tabgrupo por ronda` g
+    JOIN `tabjugador en grupo` j ON j.parent = g.name
+    WHERE g.ronda IN %(rondas)s
+    ORDER BY g.hora_de_salida, g.nombre_del_grupo
+  """, {"rondas": ronda_names_all}, as_dict=True) -%}
+{%- else -%}
+  {%- set grupos_data = [] -%}
+{%- endif -%}
+
+{%- set jugador_grupo = {} -%}
+{%- for gd in grupos_data -%}
+  {%- set _ = jugador_grupo.update({gd.jugador~"||"~gd.ronda: gd.nombre_del_grupo}) -%}
+{%- endfor -%}
+
+{%- set grupos_por_ronda = {} -%}
+{%- for gd in grupos_data -%}
+  {%- if gd.ronda not in grupos_por_ronda -%}
+    {%- set _ = grupos_por_ronda.update({gd.ronda: []}) -%}
+  {%- endif -%}
+  {%- if gd.nombre_del_grupo not in grupos_por_ronda[gd.ronda] -%}
+    {%- set _ = grupos_por_ronda[gd.ronda].append(gd.nombre_del_grupo) -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- if hay_filtro and rondas | length == 1 -%}
+  {%- set ronda_filtro_name = rondas[0].name -%}
+  {%- set participaciones = [] -%}
+  {%- for p in participaciones_all -%}
+    {%- if jugador_grupo.get(p.jugador~"||"~ronda_filtro_name, "") == filtro_grupo -%}
+      {%- set _ = participaciones.append(p) -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- else -%}
+  {%- set participaciones = participaciones_all -%}
+{%- endif -%}
+
+{%- set ronda_names = rondas | map(attribute="name") | list -%}
+{%- if ronda_names -%}
+  {%- set raw_scores = frappe.db.sql("""
+    SELECT jugador, ronda, numero_de_hoyo,
+           COALESCE(golpes_brutos, 0)     AS golpes,
+           COALESCE(par_del_hoyo,  4)     AS par,
+           COALESCE(puntos_stableford, 0) AS stab
+    FROM `tabpuntuacion por hoyo`
+    WHERE ronda IN %(rondas)s
+    ORDER BY ronda, jugador, numero_de_hoyo
+  """, {"rondas": ronda_names}, as_dict=True) -%}
+{%- else -%}
+  {%- set raw_scores = [] -%}
+{%- endif -%}
+
+{%- set hmap = {} -%}
+{%- for s in raw_scores -%}
+  {%- set _ = hmap.update({s.jugador~"||"~s.ronda~"||"~s.numero_de_hoyo: s}) -%}
+{%- endfor -%}
+
+{%- set par_hoyo = {} -%}
+{%- for s in raw_scores -%}
+  {%- if s.numero_de_hoyo not in par_hoyo -%}
+    {%- set _ = par_hoyo.update({s.numero_de_hoyo: s.par}) -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{#   Frappe expone request.path y frappe.utils.get_url()                      #}
+{%- set base_qs = "doctype=torneo+de+golf&name=" ~ doc.name ~ "&format=puntuaciones_torneo&no_letterhead=0" -%}
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+@page { size: A4 landscape; margin: 8mm; }
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 7.5pt;
+  color: #111;
+  background: #fff;
+}
+
+@media print {
+  .no-print   { display: none !important; }
+  .page-break { page-break-before: always; break-before: page; }
+  thead       { display: table-header-group; }
+}
+
+.filter-panel {
+  background: #1a5276;
+  color: #fff;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  font-size: 8.5pt;
+}
+.filter-panel h3 {
+  font-size: 9.5pt;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.filter-row:last-child { margin-bottom: 0; }
+.filter-row label {
+  font-size: 8pt;
+  font-weight: 600;
+  opacity: .8;
+  min-width: 80px;
+}
+.filter-row select {
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: none;
+  font-size: 8pt;
+  font-family: inherit;
+  min-width: 180px;
+  cursor: pointer;
+}
+.filter-row button {
+  padding: 3px 12px;
+  border-radius: 3px;
+  border: 1.5px solid #fff;
+  background: rgba(255,255,255,.15);
+  color: #fff;
+  font-size: 8pt;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.filter-row button:hover { background: rgba(255,255,255,.3); }
+.filter-row a.reset-btn {
+  color: rgba(255,255,255,.7);
+  font-size: 7.5pt;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.filter-active-badge {
+  display: inline-block;
+  background: #e67e22;
+  color: #fff;
+  font-size: 7pt;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+.filter-empty { font-size: 8pt; opacity: .7; font-style: italic; }
+
+.doc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 3px solid #1a5276;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+.doc-header h1 { font-size: 13pt; font-weight: 800; color: #1a5276; margin-bottom: 2px; }
+.doc-header .sub  { font-size: 7.5pt; color: #555; line-height: 1.5; }
+.doc-header .meta { text-align: right; font-size: 7.5pt; color: #555; line-height: 1.55; }
+
+.meta-bar {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  background: #eaf3fb; border-radius: 4px;
+  padding: 5px 10px; margin-bottom: 10px; font-size: 7pt;
+}
+.meta-bar .item { display: flex; flex-direction: column; }
+.meta-bar .lbl  { color: #888; text-transform: uppercase; letter-spacing: .04em; }
+.meta-bar .val  { font-weight: 700; color: #1a5276; font-size: 8.5pt; }
+
+.round-header {
+  display: flex; align-items: center; gap: 7px;
+  background: #1a5276; color: #fff;
+  padding: 4px 8px; border-radius: 4px 4px 0 0; margin-top: 14px;
+}
+.round-header h2 { font-size: 10pt; font-weight: 700; }
+.round-header .rh-meta { font-size: 7.5pt; opacity: .85; margin-left: auto; }
+.pill { display:inline-block; padding:1px 6px; border-radius:3px; font-size:7pt; font-weight:600; }
+.pill-pend { background:#dee2e6; color:#495057; }
+.pill-run  { background:#fd7e14; color:#fff; }
+.pill-ok   { background:#28a745; color:#fff; }
+
+.sc-wrap {
+  width: 100%;
+  border: 1px solid #1a5276;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  margin-bottom: 4px;
+}
+table.scorecard {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 6.8pt;
+  table-layout: fixed;
+}
+table.scorecard col.c-pos    { width: 22px; }
+table.scorecard col.c-player { width: 90px; }
+table.scorecard col.c-cat    { width: 40px; }
+table.scorecard col.c-hoyo   { width: 21px; }
+table.scorecard col.c-sub    { width: 26px; }
+table.scorecard col.c-hcp    { width: 26px; }
+table.scorecard col.c-net    { width: 26px; }
+table.scorecard col.c-tot    { width: 28px; }
+
+table.scorecard thead tr.th-label th {
+  background: #1a5276; color: #fff; font-weight: 700;
+  text-align: center; padding: 3px 1px;
+  border: 1px solid #0d3349; overflow: hidden; white-space: nowrap;
+}
+table.scorecard thead tr.th-label th.th-player { text-align:left; padding-left:4px; }
+
+table.scorecard thead tr.th-par th {
+  background: #d6eaf8; color: #1a5276;
+  font-size: 6.5pt; font-weight: 700;
+  text-align: center; padding: 2px 1px; border: 1px solid #aad4ea;
+}
+table.scorecard thead tr.th-par th.par-label { text-align:left; padding-left:4px; }
+
+table.scorecard tbody td {
+  text-align: center; padding: 2px 1px;
+  border: 1px solid #dee2e6; vertical-align: middle;
+  overflow: hidden; white-space: nowrap;
+}
+table.scorecard tbody td.td-player {
+  text-align: left; padding-left: 4px;
+  font-weight: 600; overflow: hidden; text-overflow: ellipsis;
+}
+table.scorecard tbody td.td-cat { font-size: 6pt; color: #555; }
+table.scorecard tbody tr.row-golpes           { background: #fff; }
+table.scorecard tbody tr.row-stab             { background: #f0f8ff; }
+table.scorecard tbody tr.row-golpes:nth-child(4n+3) { background: #f9fbff; }
+
+td.c-out,th.c-out { background:#2e86c1 !important; color:#fff !important; font-weight:700 !important; }
+td.c-in, th.c-in  { background:#2e86c1 !important; color:#fff !important; font-weight:700 !important; }
+td.c-hcp,th.c-hcp { background:#eaf3fb !important; color:#1a5276 !important; font-weight:700 !important; }
+td.c-net,th.c-net { background:#d5f5e3 !important; color:#1a5276 !important; font-weight:700 !important; }
+td.c-tot,th.c-tot { background:#1a5276 !important; color:#fff !important;
+                     font-weight:700 !important; font-size:7.5pt !important; }
+
+.eagle  { display:inline-flex;align-items:center;justify-content:center;
+           width:14px;height:14px;border-radius:50%;
+           background:#ffd700;font-weight:700;font-size:6.5pt; }
+.birdie { display:inline-flex;align-items:center;justify-content:center;
+           width:14px;height:14px;border-radius:50%;
+           border:1.5px solid #2e86c1;font-size:6.5pt; }
+.bogey  { display:inline-flex;align-items:center;justify-content:center;
+           width:14px;height:14px;
+           border:1.5px solid #e74c3c;font-size:6.5pt; }
+.double { display:inline-flex;align-items:center;justify-content:center;
+           width:14px;height:14px;
+           border:2.5px solid #e74c3c;font-size:6.5pt; }
+
+.pos-1 { background:#ffc107;color:#212529;font-weight:700;border-radius:2px;
+          padding:0 3px;display:inline-block; }
+.pos-2 { background:#6c757d;color:#fff;font-weight:700;border-radius:2px;
+          padding:0 3px;display:inline-block; }
+.pos-3 { background:#cd7f32;color:#fff;font-weight:700;border-radius:2px;
+          padding:0 3px;display:inline-block; }
+
+.stab-val { color:#1a6fa8; font-size:6.3pt; font-style:italic; }
+.c-empty  { color:#ccc; font-size:7pt; }
+.empty-note { padding:8px; text-align:center; color:#888; font-style:italic; }
+.legend { font-size:7pt; color:#777; margin:3px 0 10px; }
+.doc-footer {
+  margin-top:14px; font-size:6.8pt; color:#888;
+  text-align:center; border-top:1px solid #dee2e6; padding-top:4px;
+}
+</style>
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   PANEL DE FILTROS — solo pantalla (class="no-print")
+   Usa <form method="GET" action="/printview"> con <select> y <button submit>.
+   El navegador codifica los valores del select automáticamente al hacer submit.
+   wkhtmltopdf no renderiza este bloque porque está oculto en @media print.
+   ══════════════════════════════════════════════════════════════════════════════ #}
+<div class="filter-panel no-print">
+  <h3>&#128269; Filtrar scorecard por grupo de salida</h3>
+
+  {%- set hay_grupos = [] -%}
+  {%- for ronda in rondas_all -%}
+    {%- set grupos_r = grupos_por_ronda.get(ronda.name, []) -%}
+    {%- if grupos_r | length > 0 -%}
+      {%- set _ = hay_grupos.append(1) -%}
+
+      <form method="GET" action="/printview" style="margin-bottom:6px">
+        {# Campos ocultos: parámetros fijos del printview #}
+        <input type="hidden" name="doctype"       value="torneo de golf">
+        <input type="hidden" name="name"          value="{{ doc.name }}">
+        <input type="hidden" name="format"        value="puntuaciones_torneo">
+        <input type="hidden" name="no_letterhead" value="0">
+        <input type="hidden" name="ronda_idx"     value="{{ ronda.numero_de_ronda }}">
+
+        <div class="filter-row">
+          <label for="sel-r{{ ronda.numero_de_ronda }}">
+            Ronda {{ ronda.numero_de_ronda }}
+            <span style="opacity:.65;font-weight:400">
+              ({{ frappe.format(ronda.fecha, {"fieldtype":"Date"}) }})
+            </span>
+          </label>
+
+          <select id="sel-r{{ ronda.numero_de_ronda }}" name="grupo">
+            <option value="">— Todos los grupos —</option>
+            {%- for grupo in grupos_r -%}
+            <option value="{{ grupo }}"
+              {%- if hay_filtro and filtro_grupo == grupo
+                    and filtro_ronda_i == ronda.numero_de_ronda | string %} selected{%- endif %}>
+              {{ grupo }}
+            </option>
+            {%- endfor -%}
+          </select>
+
+          <button type="submit">Ver grupo</button>
+
+          {%- if hay_filtro and filtro_ronda_i == ronda.numero_de_ronda | string -%}
+          &nbsp;
+          <a href="/printview?{{ base_qs }}"
+             style="color:rgba(255,255,255,.75);font-size:7.5pt;text-decoration:underline">
+            &#10005; Quitar filtro
+          </a>
+          {%- endif -%}
+        </div>
+      </form>
+
+    {%- endif -%}
+  {%- endfor -%}
+
+  {%- if not hay_grupos -%}
+  <p class="filter-empty">
+    No hay grupos de salida definidos para este torneo.
+    Créalos desde <strong>Grupo por Ronda</strong>.
+  </p>
+  {%- endif -%}
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   CABECERA
+   ══════════════════════════════════════════════════════════════════════════════ #}
+<div class="doc-header">
+  <div>
+    <h1>
+      Scorecard &#8212; Puntuaciones por Jugador
+      {%- if hay_filtro -%}
+        &nbsp;<span class="filter-active-badge">
+          {{ filtro_grupo }} &#183; R{{ filtro_ronda_i }}
+        </span>
+      {%- endif -%}
+    </h1>
+    <div class="sub">
+      {{ doc.nombre_del_torneo }} &#183;
+      Campo: <strong>{{ campo_doc.nombre }}</strong>
+      &#183; {{ campo_doc.numero_de_hoyos }} hoyos
+      &#183; Par {{ campo_doc.par_total }}
+    </div>
+  </div>
+  <div class="meta">
+    Formato: <strong>{{ formato_doc.tipo_de_formato }}</strong><br>
+    {{ frappe.format(doc.fecha_de_inicio, {"fieldtype":"Date"}) }} &#8211;
+    {{ frappe.format(doc.fecha_de_fin,    {"fieldtype":"Date"}) }}<br>
+    Estado: <strong>{{ doc.estado }}</strong>
+  </div>
+</div>
+
+{%- set rondas_ok = rondas_all | selectattr("estado","equalto","Completada") | list -%}
+<div class="meta-bar">
+  <div class="item"><span class="lbl">Participantes</span>
+    <span class="val">{{ participaciones | length }}{% if hay_filtro %} / {{ participaciones_all | length }}{% endif %}</span></div>
+  <div class="item"><span class="lbl">Rondas</span>
+    <span class="val">{{ rondas | length }} / {{ doc.numero_de_rondas }}</span></div>
+  <div class="item"><span class="lbl">Completadas</span>
+    <span class="val">{{ rondas_ok | length }}</span></div>
+  <div class="item"><span class="lbl">Par total</span>
+    <span class="val">{{ campo_doc.par_total }}</span></div>
+  <div class="item"><span class="lbl">Desempate</span>
+    <span class="val">{{ formato_doc.criterio_de_desempate }}</span></div>
+  {%- if hay_filtro -%}
+  <div class="item"><span class="lbl">Filtro activo</span>
+    <span class="val" style="color:#e67e22">{{ filtro_grupo }}</span></div>
+  {%- endif -%}
+</div>
+
+<p class="legend">
+  <strong>OUT</strong>=h.1&#8211;9 &#183;
+  <strong>IN</strong>=h.10&#8211;18 &#183;
+  <strong>HCP</strong>=h&#225;ndicap inscripci&#243;n &#183;
+  <strong>NET</strong>=brutos ronda&#8722;HCP &#183;
+  <strong>TOT</strong>=acumulado torneo
+  {%- if es_stab %} &#183; cursiva azul=Stableford{%- endif %}
+  &#183;
+  <span class="eagle" style="font-size:6pt">N</span> Eagle &#160;
+  <span class="birdie" style="font-size:6pt">N</span> Birdie &#160;
+  <span class="bogey"  style="font-size:6pt">N</span> Bogey &#160;
+  <span class="double" style="font-size:6pt">N</span> Doble+
+  &#183; (E)=Empate
+</p>
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   LOOP DE RONDAS
+   ══════════════════════════════════════════════════════════════════════════════ #}
+{%- for ronda in rondas -%}
+{%- if not loop.first %}<div class="page-break"></div>{%- endif -%}
+
+{%- set ec = "pill-pend" -%}
+{%- if ronda.estado == "En curso"   -%}{%- set ec = "pill-run" -%}{%- endif -%}
+{%- if ronda.estado == "Completada" -%}{%- set ec = "pill-ok"  -%}{%- endif -%}
+
+<div class="round-header">
+  <h2>Ronda {{ ronda.numero_de_ronda }}</h2>
+  <span class="pill {{ ec }}">{{ ronda.estado }}</span>
+  {%- if hay_filtro -%}
+  <span class="pill" style="background:#e67e22;">{{ filtro_grupo }}</span>
+  {%- endif -%}
+  <span class="rh-meta">{{ frappe.format(ronda.fecha, {"fieldtype":"Date"}) }}</span>
+</div>
+
+<div class="sc-wrap">
+  <table class="scorecard">
+    <colgroup>
+      <col class="c-pos"><col class="c-player"><col class="c-cat">
+      {%- for h in range(1,10)  %}<col class="c-hoyo">{%- endfor %}
+      <col class="c-sub">
+      {%- for h in range(10,19) %}<col class="c-hoyo">{%- endfor %}
+      <col class="c-sub"><col class="c-hcp"><col class="c-net"><col class="c-tot">
+    </colgroup>
+    <thead>
+      <tr class="th-label">
+        <th>#</th><th class="th-player">Jugador</th><th>Cat</th>
+        {%- for h in range(1,10)  -%}<th>{{ h }}</th>{%- endfor -%}
+        <th class="c-out">OUT</th>
+        {%- for h in range(10,19) -%}<th>{{ h }}</th>{%- endfor -%}
+        <th class="c-in">IN</th>
+        <th class="c-hcp">HCP</th><th class="c-net">NET</th><th class="c-tot">TOT</th>
+      </tr>
+      <tr class="th-par">
+        <th></th><th class="par-label">PAR</th><th></th>
+        {%- set ns_par = namespace(out=0, inn=0) -%}
+        {%- for h in range(1,10) -%}
+          {%- set pv = par_hoyo.get(h, 4) -%}{%- set ns_par.out = ns_par.out + pv -%}
+          <th>{{ pv }}</th>
+        {%- endfor -%}
+        <th class="c-out">{{ ns_par.out }}</th>
+        {%- for h in range(10,19) -%}
+          {%- set pv = par_hoyo.get(h, 4) -%}{%- set ns_par.inn = ns_par.inn + pv -%}
+          <th>{{ pv }}</th>
+        {%- endfor -%}
+        <th class="c-in">{{ ns_par.inn }}</th>
+        <th class="c-hcp"></th><th class="c-net"></th>
+        <th class="c-tot">{{ ns_par.out + ns_par.inn }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- if not participaciones -%}
+      <tr><td class="empty-note" colspan="24">
+        {%- if hay_filtro -%}Sin jugadores en "{{ filtro_grupo }}" para esta ronda.
+        {%- else -%}Sin participantes inscritos.{%- endif -%}
+      </td></tr>
+      {%- endif -%}
+
+      {%- for p in participaciones -%}
+        {%- set ns = namespace(out_g=0,in_g=0,out_s=0,in_s=0,tiene=false) -%}
+        {%- for h in range(1,10) -%}
+          {%- set sc = hmap.get(p.jugador~"||"~ronda.name~"||"~h) -%}
+          {%- if sc -%}
+            {%- set ns.out_g = ns.out_g + sc.golpes -%}
+            {%- set ns.out_s = ns.out_s + sc.stab -%}
+            {%- set ns.tiene = true -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- for h in range(10,19) -%}
+          {%- set sc = hmap.get(p.jugador~"||"~ronda.name~"||"~h) -%}
+          {%- if sc -%}
+            {%- set ns.in_g = ns.in_g + sc.golpes -%}
+            {%- set ns.in_s = ns.in_s + sc.stab -%}
+            {%- set ns.tiene = true -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- set brutos = ns.out_g + ns.in_g -%}
+        {%- set net    = brutos - (p.handicap_inscripcion | int) -%}
+        {%- set es_emp = (loop.index < participaciones|length and
+            participaciones[loop.index].posicion_en_ranking == p.posicion_en_ranking)
+            or (loop.index0 > 0 and
+            participaciones[loop.index0-1].posicion_en_ranking == p.posicion_en_ranking) -%}
+
+        {# Fila de golpes #}
+        <tr class="row-golpes">
+          <td>
+            {%- if p.posicion_en_ranking == 1 -%}<span class="pos-1">1&#176;</span>
+            {%- elif p.posicion_en_ranking == 2 -%}<span class="pos-2">2&#176;</span>
+            {%- elif p.posicion_en_ranking == 3 -%}<span class="pos-3">3&#176;</span>
+            {%- else -%}{{ p.posicion_en_ranking or "&#8212;" }}{%- endif -%}
+            {%- if es_emp -%}<sup style="color:#888;font-size:5.5pt">E</sup>{%- endif -%}
+          </td>
+          <td class="td-player">{{ p.nombre_jugador or p.jugador }}</td>
+          <td class="td-cat">{{ p.categoria }}</td>
+
+          {%- for h in range(1,10) -%}
+            {%- set sc = hmap.get(p.jugador~"||"~ronda.name~"||"~h) -%}
+            {%- if sc -%}{%- set d = sc.golpes - sc.par -%}
+              <td>
+                {%- if d <= -2 -%}<span class="eagle">{{ sc.golpes }}</span>
+                {%- elif d == -1 -%}<span class="birdie">{{ sc.golpes }}</span>
+                {%- elif d == 0  -%}{{ sc.golpes }}
+                {%- elif d == 1  -%}<span class="bogey">{{ sc.golpes }}</span>
+                {%- else -%}<span class="double">{{ sc.golpes }}</span>
+                {%- endif -%}
+              </td>
+            {%- else -%}<td class="c-empty">&#183;</td>{%- endif -%}
+          {%- endfor -%}
+
+          <td class="c-out">{{ ns.out_g if ns.tiene else "&#8212;" }}</td>
+
+          {%- for h in range(10,19) -%}
+            {%- set sc = hmap.get(p.jugador~"||"~ronda.name~"||"~h) -%}
+            {%- if sc -%}{%- set d = sc.golpes - sc.par -%}
+              <td>
+                {%- if d <= -2 -%}<span class="eagle">{{ sc.golpes }}</span>
+                {%- elif d == -1 -%}<span class="birdie">{{ sc.golpes }}</span>
+                {%- elif d == 0  -%}{{ sc.golpes }}
+                {%- elif d == 1  -%}<span class="bogey">{{ sc.golpes }}</span>
+                {%- else -%}<span class="double">{{ sc.golpes }}</span>
+                {%- endif -%}
+              </td>
+            {%- else -%}<td class="c-empty">&#183;</td>{%- endif -%}
+          {%- endfor -%}
+
+          <td class="c-in">{{ ns.in_g if ns.tiene else "&#8212;" }}</td>
+          <td class="c-hcp">{{ p.handicap_inscripcion }}</td>
+          <td class="c-net">{{ net if ns.tiene else "&#8212;" }}</td>
+          <td class="c-tot">
+            {{ p.puntuacion_total_acumulada if p.puntuacion_total_acumulada is not none else "&#8212;" }}
+          </td>
+        </tr>
+
+        {# Fila Stableford #}
+        {%- if es_stab and ns.tiene -%}
+        <tr class="row-stab">
+          <td></td>
+          <td class="td-player stab-val" style="font-size:6pt">Stableford</td>
+          <td></td>
+          {%- for h in range(1,10) -%}
+            {%- set sc = hmap.get(p.jugador~"||"~ronda.name~"||"~h) -%}
+            <td class="stab-val">{{ sc.stab if sc else "" }}</td>
+          {%- endfor -%}
+          <td class="c-out stab-val">{{ ns.out_s }}</td>
+          {%- for h in range(10,19) -%}
+            {%- set sc = hmap.get(p.jugador~"||"~ronda.name~"||"~h) -%}
+            <td class="stab-val">{{ sc.stab if sc else "" }}</td>
+          {%- endfor -%}
+          <td class="c-in stab-val">{{ ns.in_s }}</td>
+          <td></td><td></td>
+          <td class="c-tot stab-val">{{ ns.out_s + ns.in_s }}</td>
+        </tr>
+        {%- endif -%}
+
+      {%- endfor -%}
+    </tbody>
+  </table>
+</div>
+
+{%- else -%}
+<p style="color:#888;font-style:italic;padding:10px">Este torneo no tiene rondas creadas.</p>
+{%- endfor -%}
+
+<div class="doc-footer">
+  {{ doc.nombre_del_torneo }}
+  {%- if hay_filtro %} &#183; {{ filtro_grupo }} &#183; R{{ filtro_ronda_i }}{%- endif %}
+  &#160;&#183;&#160; Scorecard &#160;&#183;&#160;
+  Generado el {{ frappe.format(frappe.utils.now(), {"fieldtype":"Datetime"}) }}
+  &#160;&#183;&#160;
+  <span class="eagle" style="font-size:6pt">N</span> Eagle &#160;
+  <span class="birdie" style="font-size:6pt">N</span> Birdie &#160;
+  <span class="bogey"  style="font-size:6pt">N</span> Bogey &#160;
+  <span class="double" style="font-size:6pt">N</span> Doble+
+  &#160;&#183;&#160; (E) Empate
+</div>

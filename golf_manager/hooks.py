@@ -36,8 +36,6 @@ fixtures = [
 	},
 ]
 
-# Scheduled Tasks
-
 scheduler_events = {
 	"cron": {
 		"*/5 * * * *": [
@@ -49,15 +47,11 @@ scheduler_events = {
 	],
 }
 
-# DocType JS
-
 doctype_js = {
 	"torneo de golf":      "golf_manager/doctype/torneo_de_golf/torneo_de_golf.js",
 	"puntuacion por hoyo": "golf_manager/doctype/puntuacion_por_hoyo/puntuacion_por_hoyo.js",
 	"ronda":               "golf_manager/doctype/ronda/ronda.js",
 }
-
-# Permission query conditions
 
 permission_query_conditions = {
 	"participacion en torneo": (
@@ -76,9 +70,6 @@ has_permission = {
 		"golf_manager.golf_manager.permissions.puntuacion_por_hoyo_has_permission"
 	),
 }
-
-# Setup post-instalacion y post migracion
-# Otorga permisos de lectura sobre Page y Module Def a los roles del modulo.
 
 after_install = "golf_manager.setup.grant_role_permissions"
 after_migrate = "golf_manager.setup.grant_role_permissions"

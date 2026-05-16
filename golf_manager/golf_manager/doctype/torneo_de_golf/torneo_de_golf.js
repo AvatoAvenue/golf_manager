@@ -1,44 +1,41 @@
-// Copyright (c) 2026, avato and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on("torneo de golf", {
-	//  Refresh: botones y estado visual
 
 	refresh(frm) {
 		frm.trigger("_render_estado_badge");
 		frm.trigger("_setup_botones");
-		frm.trigger("_render_panel_rondas");
+		setTimeout(() => frm.trigger("_render_panel_rondas"), 300);
 	},
-
-	//  Estado visual
 
 	_render_estado_badge(frm) {
-		const colores = {
-			Borrador: "gray",
-			Activo: "green",
-			Finalizado: "blue",
-		};
-		const color = colores[frm.doc.estado] || "gray";
-		frm.page.set_indicator(frm.doc.estado, color);
+		const colores = { Borrador: "gray", Activo: "green", Finalizado: "blue" };
+		frm.page.set_indicator(frm.doc.estado, colores[frm.doc.estado] || "gray");
 	},
 
-	//  Botones de acción
-
 	_setup_botones(frm) {
-		// Botón: Ver ranking público
 		frm.add_custom_button(__("Ver ranking"), () => {
 			frappe.call({
 				method: "golf_manager.golf_manager.api.get_ranking",
-				args: { torneo: frm.doc.name },
+				args:   { torneo: frm.doc.name, usar_cache: 0 },
+				freeze: true,
+				freeze_message: __("Cargando ranking..."),
 				callback(r) {
 					if (r.message) {
-						frm.trigger("_mostrar_ranking_dialog", r.message);
+						_mostrar_ranking_dialog(r.message);
+					} else {
+						frappe.msgprint(__("No se pudo obtener el ranking."));
 					}
 				},
 			});
 		}, __("Reportes"));
 
-		// Botón: Finalizar torneo si se esta activo y enviado
+		frm.add_custom_button(__("PDF — Brackets de rondas"), () => {
+			_descargar_pdf(frm, "brackets_torneo");
+		}, __("Reportes"));
+
+		frm.add_custom_button(__("PDF — Puntuaciones por jugador"), () => {
+			_descargar_pdf(frm, "puntuaciones_torneo");
+		}, __("Reportes"));
+
 		if (frm.doc.docstatus === 1 && frm.doc.estado === "Activo") {
 			frm.add_custom_button(__("Finalizar torneo"), () => {
 				frappe.confirm(
@@ -46,7 +43,7 @@ frappe.ui.form.on("torneo de golf", {
 					() => {
 						frm.call("finalizar").then(() => {
 							frappe.show_alert({
-								message: __("Torneo finalizado correctamente."),
+								message:   __("Torneo finalizado correctamente."),
 								indicator: "green",
 							});
 							frm.reload_doc();
@@ -54,66 +51,55 @@ frappe.ui.form.on("torneo de golf", {
 					}
 				);
 			}, __("Acciones"));
-		}
 
-		// Botón: Nueva ronda si está activo
-		if (frm.doc.docstatus === 1 && frm.doc.estado === "Activo") {
 			frm.add_custom_button(__("Nueva ronda"), () => {
 				frm.trigger("_crear_ronda");
 			}, __("Acciones"));
 		}
 	},
 
-	//  Panel de rondas
-
 	_render_panel_rondas(frm) {
 		if (frm.is_new()) return;
 
-		// Eliminar cualquier panel previo antes de renderizar uno nuevo.
-		// Esto evita la duplicación cuando refresh se dispara varias veces.
-		$(frm.wrapper).find(".golf-rondas-panel").remove();
+		const PANEL = "golf-rondas-panel";
+		$(frm.wrapper).find(`.${PANEL}`).remove();
 
 		frappe.db
 			.get_list("ronda", {
-				filters: { torneo: frm.doc.name },
-				fields: ["name", "numero_de_ronda", "fecha", "estado"],
+				filters:  { torneo: frm.doc.name },
+				fields:   ["name", "numero_de_ronda", "fecha", "estado"],
 				order_by: "numero_de_ronda asc",
 			})
 			.then((rondas) => {
-				// Limpiar de nuevo por si llegaron dos respuestas async solapadas
-				$(frm.wrapper).find(".golf-rondas-panel").remove();
+				$(frm.wrapper).find(`.${PANEL}`).remove();
 
-				if (!rondas.length) return;
+				const PILL = { Pendiente: "gray", "En curso": "orange", Completada: "green" };
 
-				const colores_estado = {
-					Pendiente: "gray",
-					"En curso": "orange",
-					Completada: "green",
-				};
-
-				const filas = rondas
-					.map((r) => {
-						const color = colores_estado[r.estado] || "gray";
-						const badge = `<span class="indicator-pill ${color}">${r.estado}</span>`;
-						return `
-							<tr>
-								<td><a href="/app/ronda/${r.name}">Ronda ${r.numero_de_ronda}</a></td>
-								<td>${frappe.datetime.str_to_user(r.fecha)}</td>
-								<td>${badge}</td>
-								<td>
-									<a class="btn btn-xs btn-default"
-										href="/app/puntuacion-por-hoyo?ronda=${r.name}">
-										${__("Puntuaciones")}
-									</a>
-								</td>
-							</tr>`;
-					})
-					.join("");
+				const filas = rondas.length
+					? rondas.map((r) => `
+						<tr>
+							<td><a href="/app/ronda/${r.name}">${__("Ronda")} ${r.numero_de_ronda}</a></td>
+							<td>${frappe.datetime.str_to_user(r.fecha)}</td>
+							<td><span class="indicator-pill ${PILL[r.estado] || "gray"}">${r.estado}</span></td>
+							<td>
+								<a class="btn btn-xs btn-default"
+									href="/app/puntuacion-por-hoyo?ronda=${r.name}">
+									${__("Puntuaciones")}
+								</a>
+							</td>
+						</tr>`).join("")
+					: `<tr><td colspan="4" class="text-center text-muted">${__("Sin rondas creadas.")}</td></tr>`;
 
 				const html = `
-					<div class="form-section golf-rondas-panel">
-						<div class="section-head">${__("Rondas del torneo")}</div>
-						<table class="table table-bordered table-condensed" style="margin-top:8px">
+					<div class="${PANEL}"
+						style="margin:20px 15px 0;background:var(--card-bg,#fff);
+							   border:1px solid var(--border-color,#d1d8dd);
+							   border-radius:var(--border-radius,6px);padding:14px 16px;">
+						<div style="font-weight:600;font-size:12px;color:var(--text-muted,#8d99a6);
+									text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">
+							${__("Rondas del torneo")}
+						</div>
+						<table class="table table-bordered table-condensed" style="margin:0">
 							<thead>
 								<tr>
 									<th>${__("Ronda")}</th>
@@ -126,48 +112,52 @@ frappe.ui.form.on("torneo de golf", {
 						</table>
 					</div>`;
 
-				// Insertar una única vez después del campo descripción
-				$(frm.fields_dict["descripcion"].wrapper)
-					.closest(".form-column")
-					.after(html);
+				const $anchor =
+					$(frm.wrapper).find(".form-layout-flex").first() ||
+					$(frm.wrapper).find(".form-page").first()        ||
+					$(frm.wrapper).find(".page-content-wrapper").first();
+
+				if ($anchor && $anchor.length) {
+					$anchor.append(html);
+				} else {
+					$(frm.wrapper).append(html);
+				}
 			});
 	},
-
-	//  Crear ronda rápida
 
 	_crear_ronda(frm) {
 		frappe.db
 			.get_list("ronda", {
-				filters: { torneo: frm.doc.name },
-				fields: ["numero_de_ronda"],
+				filters:  { torneo: frm.doc.name },
+				fields:   ["numero_de_ronda"],
 				order_by: "numero_de_ronda desc",
-				limit: 1,
+				limit:    1,
 			})
 			.then((res) => {
 				const siguiente = res.length ? res[0].numero_de_ronda + 1 : 1;
 
 				if (siguiente > frm.doc.numero_de_rondas) {
-					frappe.msgprint(__("El torneo ya tiene todas sus rondas creadas ({0}).", [frm.doc.numero_de_rondas]));
+					frappe.msgprint(
+						__("El torneo ya tiene todas sus rondas creadas ({0}).", [frm.doc.numero_de_rondas])
+					);
 					return;
 				}
 
 				const d = new frappe.ui.Dialog({
 					title: __("Nueva ronda {0}", [siguiente]),
-					fields: [
-						{
-							fieldname: "fecha",
-							fieldtype: "Date",
-							label: __("Fecha de la ronda"),
-							reqd: 1,
-						},
-					],
+					fields: [{
+						fieldname: "fecha",
+						fieldtype: "Date",
+						label:     __("Fecha de la ronda"),
+						reqd:      1,
+					}],
 					primary_action_label: __("Crear"),
 					primary_action(values) {
 						frappe.new_doc("ronda", {
-							torneo: frm.doc.name,
+							torneo:          frm.doc.name,
 							numero_de_ronda: siguiente,
-							fecha: values.fecha,
-							estado: "Pendiente",
+							fecha:           values.fecha,
+							estado:          "Pendiente",
 						});
 						d.hide();
 					},
@@ -175,41 +165,6 @@ frappe.ui.form.on("torneo de golf", {
 				d.show();
 			});
 	},
-
-	//  Dialog de ranking
-
-	_mostrar_ranking_dialog(frm, data) {
-		const filas = (data.ranking || [])
-			.map(
-				(p) => `
-				<tr>
-					<td>${p.posicion_en_ranking || "-"}</td>
-					<td>${p.nombre_jugador || p.jugador}</td>
-					<td>${p.categoria}</td>
-					<td>${p.puntuacion_total_acumulada ?? "-"}</td>
-				</tr>`
-			)
-			.join("");
-
-		frappe.msgprint({
-			title: __("Ranking — {0}", [data.torneo_info?.nombre || frm.doc.nombre_del_torneo]),
-			message: `
-				<table class="table table-bordered table-condensed">
-					<thead>
-						<tr>
-							<th>#</th>
-							<th>${__("Jugador")}</th>
-							<th>${__("Categoría")}</th>
-							<th>${__("Puntuación")}</th>
-						</tr>
-					</thead>
-					<tbody>${filas}</tbody>
-				</table>`,
-			wide: true,
-		});
-	},
-
-	//  Validación en cliente
 
 	fecha_de_fin(frm) {
 		if (frm.doc.fecha_de_inicio && frm.doc.fecha_de_fin) {
@@ -220,3 +175,84 @@ frappe.ui.form.on("torneo de golf", {
 		}
 	},
 });
+
+
+function _descargar_pdf(frm, formato) {
+	frappe.db.get_value("Print Format", { name: formato }, "name")
+		.then((r) => {
+			if (!r || !r.message || !r.message.name) {
+				frappe.msgprint({
+					title:     __("Formato no instalado"),
+					message:   __('El Print Format <strong>{0}</strong> no está instalado.', [formato]),
+					indicator: "orange",
+				});
+				return;
+			}
+
+			const params = new URLSearchParams({
+				doctype:       "torneo de golf",
+				name:          frm.doc.name,
+				format:        formato,
+				no_letterhead: "1",
+				letterhead:    "No Letterhead",
+			});
+
+			window.open(
+				frappe.urllib.get_full_url(`/api/method/frappe.utils.print_format.download_pdf?${params}`),
+				"_blank"
+			);
+		});
+}
+
+
+function _mostrar_ranking_dialog(data) {
+	if (!data || !data.ranking) {
+		frappe.msgprint(__("No hay datos de ranking disponibles."));
+		return;
+	}
+
+	const info   = data.torneo_info || {};
+	const titulo = info.nombre || __("Ranking");
+
+	const BADGE = {
+		1: `<span style="background:#ffc107;color:#212529;padding:1px 8px;border-radius:3px;font-weight:700">1°</span>`,
+		2: `<span style="background:#6c757d;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700">2°</span>`,
+		3: `<span style="background:#cd7f32;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700">3°</span>`,
+	};
+
+	const filas = data.ranking.length
+		? data.ranking.map((p) => `
+			<tr>
+				<td style="text-align:center">
+					${BADGE[p.posicion_en_ranking] || (p.posicion_en_ranking ?? "—")}
+				</td>
+				<td><strong>${p.nombre_jugador || p.jugador}</strong></td>
+				<td>${p.categoria || "—"}</td>
+				<td style="text-align:center">${p.handicap_inscripcion ?? "—"}</td>
+				<td style="text-align:center;font-weight:600">${p.puntuacion_total_acumulada ?? "—"}</td>
+			</tr>`).join("")
+		: `<tr><td colspan="5" class="text-center text-muted">${__("Sin resultados registrados.")}</td></tr>`;
+
+	frappe.msgprint({
+		title:   `${titulo} — ${info.estado || ""}`,
+		message: `
+			<div style="font-size:12px;color:#6c757d;margin-bottom:8px">
+				${__("Campo")}: <strong>${info.campo || "—"}</strong>
+				&nbsp;·&nbsp;
+				${__("Formato")}: <strong>${info.formato || "—"}</strong>
+			</div>
+			<table class="table table-bordered table-condensed" style="margin:0;font-size:13px">
+				<thead style="background:#1a5276;color:#fff">
+					<tr>
+						<th style="text-align:center;width:50px">#</th>
+						<th>${__("Jugador")}</th>
+						<th>${__("Categoría")}</th>
+						<th style="text-align:center">${__("Hcp")}</th>
+						<th style="text-align:center">${__("Puntuación")}</th>
+					</tr>
+				</thead>
+				<tbody>${filas}</tbody>
+			</table>`,
+		wide: true,
+	});
+}
