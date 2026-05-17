@@ -1,106 +1,877 @@
-{%- set campo_doc = frappe.get_doc("campo de golf", doc.campo_de_golf) -%}
+{#
+  Print Format: brackets_torneo
+  DocType      : torneo de golf
+  Diseño       : Progresión piramidal por rondas compatible con Stroke Play,
+                 Match Play y Stableford. Para Match Play muestra el árbol de
+                 eliminación real; para Stroke/Stableford muestra la progresión
+                 de posiciones ronda a ronda con flechas de avance.
+#}
+
+{%- set campo_doc   = frappe.get_doc("campo de golf", doc.campo_de_golf) -%}
+{%- set formato_doc = frappe.get_doc("formato de torneo", doc.formato) -%}
+{%- set es_match    = formato_doc.tipo_de_formato == "Match Play" -%}
+{%- set es_stab     = formato_doc.tipo_de_formato == "Stableford" -%}
+
 {%- set rondas = frappe.get_all("ronda",
       filters={"torneo": doc.name},
       fields=["name","numero_de_ronda","fecha","estado"],
       order_by="numero_de_ronda asc") -%}
 
+{%- set participaciones = frappe.db.sql("""
+  SELECT pt.jugador, pt.categoria, pt.handicap_inscripcion,
+         pt.puntuacion_total_acumulada, pt.posicion_en_ranking,
+         u.full_name AS nombre
+  FROM `tabparticipacion en torneo` pt
+  LEFT JOIN `tabUser` u ON u.name = pt.jugador
+  WHERE pt.torneo = %s
+  ORDER BY pt.posicion_en_ranking ASC, pt.puntuacion_total_acumulada ASC
+""", doc.name, as_dict=True) -%}
+
+{%- set ronda_names = rondas | map(attribute="name") | list -%}
+
+{%- if ronda_names -%}
+{%- set scores_raw = frappe.db.sql("""
+  SELECT jugador, ronda,
+         COALESCE(SUM(COALESCE(golpes_brutos,0)),0)     AS golpes,
+         COALESCE(SUM(COALESCE(puntos_stableford,0)),0) AS stab
+  FROM `tabpuntuacion por hoyo`
+  WHERE ronda IN %(rondas)s
+  GROUP BY jugador, ronda
+""", {"rondas": ronda_names}, as_dict=True) -%}
+{%- else -%}
+{%- set scores_raw = [] -%}
+{%- endif -%}
+
+{# Mapas de scores por ronda: jugador -> {golpes, stab} #}
+{%- set score_map = {} -%}
+{%- for s in scores_raw -%}
+  {%- set k = s.jugador ~ "||" ~ s.ronda -%}
+  {%- set _ = score_map.update({k: s}) -%}
+{%- endfor -%}
+
+{# Scores acumulados por jugador al terminar cada ronda #}
+{%- set acum_map = {} -%}
+{%- for p in participaciones -%}
+  {%- set ns_a = namespace(g=0, s=0) -%}
+  {%- for r in rondas -%}
+    {%- set sc = score_map.get(p.jugador ~ "||" ~ r.name) -%}
+    {%- if sc -%}
+      {%- set ns_a.g = ns_a.g + (sc.golpes or 0) -%}
+      {%- set ns_a.s = ns_a.s + (sc.stab or 0) -%}
+    {%- endif -%}
+    {%- set kk = p.jugador ~ "||" ~ r.name -%}
+    {%- set _ = acum_map.update({kk: {"g": ns_a.g, "s": ns_a.s}}) -%}
+  {%- endfor -%}
+{%- endfor -%}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brackets — {{ doc.nombre_del_torneo }}</title>
 <style>
-body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111; }
-.rpt-header { border-bottom: 2px solid #1a5276; padding-bottom: 8px; margin-bottom: 14px; }
-.rpt-header h1 { font-size: 15pt; color: #1a5276; margin: 0 0 3px; }
-.rpt-header .sub { font-size: 9.5pt; color: #555; }
-.ronda-header { background: #1a5276; color: #fff; padding: 5px 10px;
-                font-size: 11pt; font-weight: bold; margin: 16px 0 0;
-                border-radius: 3px 3px 0 0; }
-.ronda-meta { font-size: 8.5pt; font-weight: normal; opacity: .85; margin-left: 8px; }
-table { width: 100%; border-collapse: collapse; font-size: 9.5pt;
-        border: 1px solid #1a5276; border-top: none; margin-bottom: 4px; }
-th { background: #2e86c1; color: #fff; padding: 4px 8px; text-align: left; }
-td { padding: 4px 8px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
-tr:nth-child(even) td { background: #f4f8fc; }
-.pill-pend { background:#dee2e6; color:#495057; padding:1px 6px; border-radius:3px; font-size:8pt; }
-.pill-run  { background:#fd7e14; color:#fff; padding:1px 6px; border-radius:3px; font-size:8pt; }
-.pill-ok   { background:#28a745; color:#fff; padding:1px 6px; border-radius:3px; font-size:8pt; }
-.empty-note { padding: 10px; text-align: center; color: #888; font-style: italic; }
-.page-break { page-break-before: always; break-before: page; }
-.rpt-footer { margin-top: 18px; font-size: 8pt; color: #888; text-align: center;
-              border-top: 1px solid #ccc; padding-top: 5px; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+@page { size: A4 landscape; margin: 8mm 10mm; }
+@media print {
+  .no-print    { display: none !important; }
+  .page-break  { page-break-before: always; break-before: page; }
+  body         { font-size: 8pt; }
+  .bracket-col { min-width: 120px; }
+}
+
+:root {
+  --navy:    #1a3a5c;
+  --navy2:   #234e7d;
+  --navy3:   #2e6aa8;
+  --gold:    #c9963a;
+  --gold2:   #e8b255;
+  --silver:  #8a9baa;
+  --bronze:  #a0714a;
+  --green:   #2e7d32;
+  --orange:  #e65100;
+  --gray1:   #f5f6f8;
+  --gray2:   #e8edf2;
+  --gray3:   #c4ccd6;
+  --text1:   #1a2433;
+  --text2:   #4a5a6b;
+  --text3:   #7a8899;
+  --radius:  6px;
+  --shadow:  0 1px 3px rgba(0,0,0,.12);
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 8.5pt;
+  color: var(--text1);
+  background: #fff;
+}
+
+.rpt-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  border-bottom: 3px solid var(--navy);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  gap: 16px;
+}
+.rpt-header h1 {
+  font-size: 15pt;
+  font-weight: 800;
+  color: var(--navy);
+  line-height: 1.15;
+}
+.rpt-header .sub {
+  font-size: 8.5pt;
+  color: var(--text2);
+  line-height: 1.7;
+  margin-top: 2px;
+}
+.rpt-header .meta {
+  text-align: right;
+  font-size: 8pt;
+  color: var(--text2);
+  line-height: 1.7;
+  white-space: nowrap;
+}
+.formato-badge {
+  display: inline-block;
+  background: var(--navy);
+  color: #fff;
+  font-size: 7pt;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.format-note {
+  background: var(--gray1);
+  border-left: 3px solid var(--navy3);
+  padding: 5px 10px;
+  font-size: 7.5pt;
+  color: var(--text2);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin-bottom: 12px;
+}
+.format-note strong { color: var(--navy); }
+
+.bracket-wrapper {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+.bracket-stage-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-height: 40px;
+}
+
+.bracket-col {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.bracket-col-header {
+  background: var(--navy);
+  color: #fff;
+  text-align: center;
+  font-size: 8pt;
+  font-weight: 700;
+  padding: 5px 4px 4px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  line-height: 1.3;
+  margin: 0 4px;
+}
+.bracket-col-header .ronda-num { font-size: 10pt; }
+.bracket-col-header .ronda-fecha { font-size: 6.5pt; font-weight: 400; opacity: .8; }
+.pill-estado {
+  display: inline-block;
+  font-size: 6pt;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.pill-pendiente { background: #b0b8c4; color: #2a3540; }
+.pill-encurso   { background: var(--gold2); color: #4a2800; }
+.pill-completada{ background: #43a047; color: #fff; }
+
+.bracket-col-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 4px;
+  gap: 4px;
+  border: 1px solid var(--gray2);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  margin: 0 4px;
+  background: var(--gray1);
+}
+
+.bracket-col.is-final .bracket-col-header {
+  background: var(--gold);
+}
+.bracket-col.is-final .bracket-col-body {
+  background: #fffdf4;
+  border-color: var(--gold2);
+}
+
+.connector-col {
+  width: 28px;
+  min-width: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding-top: 32px;
+}
+.connector-col svg {
+  overflow: visible;
+}
+
+.player-card {
+  background: #fff;
+  border: 1px solid var(--gray3);
+  border-radius: var(--radius);
+  padding: 4px 7px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  transition: border-color .15s;
+}
+.player-card:hover { border-color: var(--navy3); }
+
+.pos-badge {
+  min-width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7.5pt;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.pos-1 { background: var(--gold); color: #4a2800; }
+.pos-2 { background: var(--silver); color: #1a2433; }
+.pos-3 { background: var(--bronze); color: #fff; }
+.pos-n { background: var(--gray2); color: var(--text2); }
+
+.player-info { flex: 1; min-width: 0; }
+.player-name {
+  font-size: 7.5pt;
+  font-weight: 700;
+  color: var(--text1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+.player-cat {
+  font-size: 6.5pt;
+  color: var(--text3);
+  line-height: 1.2;
+}
+
+.player-score {
+  text-align: right;
+  flex-shrink: 0;
+}
+.score-ronda {
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: var(--navy);
+  line-height: 1.2;
+}
+.score-acum {
+  font-size: 6pt;
+  color: var(--text3);
+  line-height: 1.1;
+}
+
+.delta-up   { color: var(--green); font-size: 6pt; }
+.delta-down { color: var(--orange); font-size: 6pt; }
+.delta-same { color: var(--text3); font-size: 6pt; }
+
+.player-card.seed-top    { border-left: 3px solid var(--gold);  }
+.player-card.seed-bot    { border-left: 3px solid var(--silver);}
+
+.match-block {
+  background: #fff;
+  border: 1px solid var(--gray3);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+.match-block .m-top, .match-block .m-bot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 7px;
+  font-size: 7.5pt;
+}
+.match-block .m-top { border-bottom: 1px solid var(--gray2); }
+.match-block .m-winner { font-weight: 700; background: #f0f8f0; }
+.match-block .m-loser  { opacity: .55; }
+.match-vs-label {
+  font-size: 6pt;
+  color: var(--text3);
+  text-align: center;
+  padding: 1px 0;
+  letter-spacing: .06em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.standings-section {
+  margin-top: 16px;
+  page-break-inside: avoid;
+}
+.standings-title {
+  font-size: 10pt;
+  font-weight: 700;
+  color: var(--navy);
+  border-left: 4px solid var(--gold);
+  padding-left: 8px;
+  margin-bottom: 8px;
+}
+table.standings {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 7.5pt;
+}
+table.standings thead th {
+  background: var(--navy2);
+  color: #fff;
+  padding: 4px 7px;
+  text-align: left;
+  white-space: nowrap;
+}
+table.standings thead th.num { text-align: center; }
+table.standings tbody tr:nth-child(even) td { background: var(--gray1); }
+table.standings tbody tr:hover td { background: #e8f0fa; }
+table.standings tbody td {
+  padding: 4px 7px;
+  border-bottom: 1px solid var(--gray2);
+  vertical-align: middle;
+}
+table.standings tbody td.num { text-align: center; }
+table.standings tbody tr.podium-1 td { background: #fffbe6; }
+table.standings tbody tr.podium-2 td { background: #f5f5f5; }
+table.standings tbody tr.podium-3 td { background: #fdf0e8; }
+
+
+.score-bar-wrap {
+  background: var(--gray2);
+  border-radius: 2px;
+  height: 6px;
+  width: 80px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.score-bar-fill {
+  height: 6px;
+  border-radius: 2px;
+  background: var(--navy3);
+  display: block;
+}
+.score-bar-fill.gold { background: var(--gold); }
+
+.rpt-footer {
+  margin-top: 18px;
+  font-size: 7.5pt;
+  color: var(--text3);
+  text-align: center;
+  border-top: 1px solid var(--gray2);
+  padding-top: 6px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 7pt;
+  color: var(--text2);
+  margin-bottom: 10px;
+}
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
 </style>
+</head>
+<body>
 
 <div class="rpt-header">
-  <h1>Brackets de Rondas — {{ doc.nombre_del_torneo }}</h1>
-  <div class="sub">
-    {{ campo_doc.nombre }} &nbsp;·&nbsp;
-    {{ frappe.format(doc.fecha_de_inicio, {"fieldtype":"Date"}) }} –
-    {{ frappe.format(doc.fecha_de_fin, {"fieldtype":"Date"}) }}
-    &nbsp;·&nbsp; Estado: <strong>{{ doc.estado }}</strong>
+  <div>
+    <h1>Brackets de Rondas</h1>
+    <div class="sub">
+      {{ doc.nombre_del_torneo }}<br>
+      {{ campo_doc.nombre }} &nbsp;&middot;&nbsp;
+      Par {{ campo_doc.par_total }} &nbsp;&middot;&nbsp;
+      {{ rondas | length }} ronda(s) de {{ doc.numero_de_rondas }}
+    </div>
+  </div>
+  <div class="meta">
+    <span class="formato-badge">{{ formato_doc.tipo_de_formato }}</span><br>
+    {{ frappe.format(doc.fecha_de_inicio, {"fieldtype":"Date"}) }} &ndash;
+    {{ frappe.format(doc.fecha_de_fin, {"fieldtype":"Date"}) }}<br>
+    Estado: <strong>{{ doc.estado }}</strong><br>
+    {{ participaciones | length }} participante(s)
   </div>
 </div>
 
-{%- for ronda in rondas -%}
-{%- if not loop.first %}<div class="page-break"></div>{%- endif -%}
+<!-- Nota descriptiva del formato -->
+<div class="format-note">
+  {%- if es_match -%}
+  <strong>Match Play:</strong> El bracket muestra los enfrentamientos directo a directo por ronda.
+  El ganador de cada partido avanza a la siguiente columna.
+  Desempate: <em>{{ formato_doc.criterio_de_desempate }}</em>.
+  {%- elif es_stab -%}
+  <strong>Stableford:</strong> Las columnas muestran la progresión acumulada de puntos por jugador ronda a ronda.
+  La posición en el ranking se recalcula al finalizar cada ronda.
+  Más puntos = mejor posición. Desempate: <em>{{ formato_doc.criterio_de_desempate }}</em>.
+  {%- else -%}
+  <strong>Stroke Play:</strong> Las columnas muestran la progresión acumulada de golpes por jugador ronda a ronda.
+  La posición en el ranking se recalcula al finalizar cada ronda.
+  Menos golpes = mejor posición. Desempate: <em>{{ formato_doc.criterio_de_desempate }}</em>.
+  {%- endif -%}
+</div>
 
-{%- set pill = "pill-pend" -%}
-{%- if ronda.estado == "En curso" -%}{%- set pill = "pill-run" -%}{%- endif -%}
-{%- if ronda.estado == "Completada" -%}{%- set pill = "pill-ok" -%}{%- endif -%}
+<!-- Leyenda -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div> 1.º lugar</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--silver)"></div> 2.º lugar</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--bronze)"></div> 3.º lugar</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--gray2);border:1px solid var(--gray3)"></div> Resto</div>
+  {%- if not es_match -%}
+  <div class="legend-item" style="margin-left:8px">
+    Puntuación por ronda &nbsp;·&nbsp; <span style="font-size:7pt;color:var(--text3)">(acumulado debajo)</span>
+  </div>
+  {%- endif -%}
+</div>
 
-{%- set grupos = frappe.db.sql("""
+{%- if not rondas -%}
+<p style="color:var(--text3);font-style:italic;padding:12px 0">
+  Este torneo aún no tiene rondas creadas.
+</p>
+{%- elif es_match -%}
+
+{#
+   MATCH PLAY: árbol de eliminación directa
+   Columna 0 = todos los jugadores pareados
+   Columna 1..N = ganadores sucesivos
+   Nota: sin resultados reales de Match Play en el modelo de
+   datos actual, mostramos los grupos de salida como
+   "partidos" de la ronda 1, y para rondas siguientes
+   mostramos los top-ranked como avanzados.
+#}
+
+{%- set ronda_1 = rondas[0] if rondas else None -%}
+{%- set grupos_r1 = frappe.db.sql("""
   SELECT g.name, g.nombre_del_grupo, g.hora_de_salida
   FROM `tabgrupo por ronda` g
   WHERE g.ronda = %s
-  ORDER BY g.hora_de_salida asc
-""", ronda.name, as_dict=True) -%}
+  ORDER BY g.hora_de_salida
+""", ronda_1.name if ronda_1 else "", as_dict=True) if ronda_1 else [] -%}
 
-<div class="ronda-header">
-  Ronda {{ ronda.numero_de_ronda }}
-  <span class="{{ pill }}">{{ ronda.estado }}</span>
-  <span class="ronda-meta">{{ frappe.format(ronda.fecha, {"fieldtype":"Date"}) }}</span>
-</div>
-
-<table>
-  <thead>
-    <tr>
-      <th style="width:40px">#</th>
-      <th style="width:160px">Grupo</th>
-      <th style="width:80px">Hora salida</th>
-      <th>Jugadores</th>
-    </tr>
-  </thead>
-  <tbody>
-    {%- if not grupos -%}
-    <tr><td class="empty-note" colspan="4">Sin grupos definidos para esta ronda.</td></tr>
-    {%- endif -%}
-    {%- for g in grupos -%}
-    {%- set jugadores = frappe.db.sql("""
-      SELECT u.full_name, pt.categoria, pt.handicap_inscripcion
-      FROM `tabjugador en grupo` j
-      JOIN `tabUser` u ON u.name = j.jugador
-      LEFT JOIN `tabparticipacion en torneo` pt
-        ON pt.jugador = j.jugador AND pt.torneo = %s
-      WHERE j.parent = %s
-      ORDER BY u.full_name
-    """, (doc.name, g.name), as_dict=True) -%}
-    <tr>
-      <td style="text-align:center">{{ loop.index }}</td>
-      <td><strong>{{ g.nombre_del_grupo }}</strong></td>
-      <td style="text-align:center">{{ g.hora_de_salida or "—" }}</td>
-      <td>
-        {%- for j in jugadores -%}
-          {{ j.full_name }}
-          <span style="font-size:8pt;color:#666">({{ j.categoria }}, Hcp {{ j.handicap_inscripcion }})</span>
-          {%- if not loop.last %}<br>{%- endif -%}
-        {%- endfor -%}
-        {%- if not jugadores -%}<span style="color:#ccc">—</span>{%- endif -%}
-      </td>
-    </tr>
-    {%- endfor -%}
-  </tbody>
-</table>
-{%- else -%}
-<p style="color:#888;font-style:italic;padding:10px">Este torneo no tiene rondas creadas.</p>
+{%- set jugadores_x_grupo = {} -%}
+{%- for g in grupos_r1 -%}
+  {%- set jjs = frappe.db.sql("""
+    SELECT j.jugador, u.full_name AS nombre, pt.handicap_inscripcion, pt.categoria
+    FROM `tabjugador en grupo` j
+    LEFT JOIN `tabUser` u ON u.name = j.jugador
+    LEFT JOIN `tabparticipacion en torneo` pt ON pt.jugador = j.jugador AND pt.torneo = %s
+    WHERE j.parent = %s
+    ORDER BY u.full_name
+  """, (doc.name, g.name), as_dict=True) -%}
+  {%- set _ = jugadores_x_grupo.update({g.name: jjs}) -%}
 {%- endfor -%}
 
+<div class="bracket-wrapper">
+<div class="bracket-stage-row">
+
+  <div class="bracket-col">
+    <div class="bracket-col-header">
+      <div class="ronda-num">Ronda 1</div>
+      {%- if ronda_1 -%}
+      <div class="ronda-fecha">{{ frappe.format(ronda_1.fecha, {"fieldtype":"Date"}) }}</div>
+      <span class="pill-estado
+        {%- if ronda_1.estado == 'Completada' %} pill-completada
+        {%- elif ronda_1.estado == 'En curso' %} pill-encurso
+        {%- else %} pill-pendiente{%- endif %}">
+        {{ ronda_1.estado }}</span>
+      {%- endif -%}
+    </div>
+    <div class="bracket-col-body">
+      {%- if grupos_r1 -%}
+        {%- for g in grupos_r1 -%}
+        <div style="font-size:6.5pt;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 2px;padding-left:2px">
+          {{ g.nombre_del_grupo }}
+          {%- if g.hora_de_salida %} · {{ g.hora_de_salida[:5] }}{%- endif %}
+        </div>
+        {%- for j in jugadores_x_grupo.get(g.name, []) -%}
+          {%- set sc = score_map.get(j.jugador ~ "||" ~ ronda_1.name) -%}
+          {%- set val = sc.stab if (sc and es_stab) else (sc.golpes if sc else None) -%}
+          <div class="match-block">
+            <div class="m-top {%- if loop.index == 1 %} m-winner{%- endif %}">
+              <div style="flex:1;font-weight:700;font-size:7.5pt;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                {{ j.nombre or j.jugador }}
+              </div>
+              <div style="font-size:7.5pt;font-weight:700;color:var(--navy);margin-left:4px">
+                {%- if val is not none %}{{ val }}{%- else %}—{%- endif %}
+              </div>
+            </div>
+          </div>
+        {%- endfor -%}
+        {%- endfor -%}
+      {%- else -%}
+      {# Sin grupos: mostrar ranking seeded #}
+        {%- for p in participaciones -%}
+          {%- set sc = score_map.get(p.jugador ~ "||" ~ rondas[0].name) if rondas else None -%}
+          {%- set val = sc.stab if (sc and es_stab) else (sc.golpes if sc else None) -%}
+          <div class="player-card">
+            <div class="pos-badge pos-n">{{ loop.index }}</div>
+            <div class="player-info">
+              <div class="player-name">{{ p.nombre or p.jugador }}</div>
+              <div class="player-cat">{{ p.categoria }} · Hcp {{ p.handicap_inscripcion }}</div>
+            </div>
+            {%- if val is not none -%}
+            <div class="player-score">
+              <div class="score-ronda">{{ val }}</div>
+            </div>
+            {%- endif -%}
+          </div>
+        {%- endfor -%}
+      {%- endif -%}
+    </div>
+  </div>
+
+  {%- for r in rondas[1:] -%}
+
+  <div class="connector-col">
+    <svg width="28" height="40" viewBox="0 0 28 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 20 L24 20" stroke="var(--navy3)" stroke-width="1.5"
+            marker-end="url(#ah)" stroke-linecap="round"/>
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5"
+                markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path d="M2 1 L8 5 L2 9" fill="none" stroke="var(--navy3)"
+                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  {%- set ronda_prev_name = rondas[loop.index - 1].name if loop.index > 0 else "" -%}
+  {%- set n_avanzados = ((participaciones | length) // (2 ** loop.index)) | int -%}
+  {%- set n_avanzados = [n_avanzados, 1] | max -%}
+
+  <div class="bracket-col {%- if loop.last and rondas | length > 1 %} is-final{%- endif %}">
+    <div class="bracket-col-header">
+      <div class="ronda-num">Ronda {{ r.numero_de_ronda }}</div>
+      <div class="ronda-fecha">{{ frappe.format(r.fecha, {"fieldtype":"Date"}) }}</div>
+      <span class="pill-estado
+        {%- if r.estado == 'Completada' %} pill-completada
+        {%- elif r.estado == 'En curso' %} pill-encurso
+        {%- else %} pill-pendiente{%- endif %}">
+        {{ r.estado }}</span>
+    </div>
+    <div class="bracket-col-body">
+      {%- set tops = participaciones[:n_avanzados] -%}
+      {%- if tops -%}
+        <div style="font-size:6.5pt;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:2px 0 4px;padding-left:2px">
+          Top {{ n_avanzados }} clasificados
+        </div>
+        {%- for p in tops -%}
+          {%- set sc = score_map.get(p.jugador ~ "||" ~ r.name) -%}
+          {%- set val = sc.stab if (sc and es_stab) else (sc.golpes if sc else None) -%}
+          {%- set pos = loop.index -%}
+          <div class="match-block">
+            <div class="m-top {%- if loop.index <= (n_avanzados // 2) %} m-winner{%- endif %}">
+              <div class="pos-badge
+                {%- if pos == 1 %} pos-1
+                {%- elif pos == 2 %} pos-2
+                {%- elif pos == 3 %} pos-3
+                {%- else %} pos-n{%- endif %}"
+                style="font-size:7pt">{{ pos }}</div>
+              <div style="flex:1;font-size:7.5pt;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                {{ p.nombre or p.jugador }}
+              </div>
+              {%- if val is not none -%}
+              <div style="font-size:8pt;font-weight:700;color:var(--navy);margin-left:4px">{{ val }}</div>
+              {%- else -%}
+              <div style="font-size:7pt;color:var(--text3);margin-left:4px">—</div>
+              {%- endif -%}
+            </div>
+          </div>
+        {%- endfor -%}
+      {%- else -%}
+        <div style="font-size:7.5pt;color:var(--text3);font-style:italic;text-align:center;padding:10px 0">
+          Sin resultados aún
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+  {%- endfor -%}
+
+</div><!-- /bracket-stage-row -->
+</div><!-- /bracket-wrapper -->
+
+
+{%- else -%}
+
+{#
+   STROKE PLAY / STABLEFORD: progresión piramidal de posiciones
+   Cada columna = 1 ronda, muestra la tarjeta de cada
+   jugador con su score en esa ronda y su acumulado.
+#}
+
+{# Ordenar participantes por ranking final (o por nombre si aún no hay) #}
+{%- set sorted_parts = participaciones | sort(attribute="posicion_en_ranking") -%}
+
+{# Para cada ronda, calcular ranking parcial #}
+{%- set partial_rankings = {} -%}
+{%- for r in rondas -%}
+  {%- set prs = [] -%}
+  {%- for p in participaciones -%}
+    {%- set sc = acum_map.get(p.jugador ~ "||" ~ r.name, {"g": 0, "s": 0}) -%}
+    {%- set _ = prs.append({
+      "jugador":  p.jugador,
+      "nombre":   p.nombre,
+      "categoria": p.categoria,
+      "hcp":      p.handicap_inscripcion,
+      "golpes":   sc.get("g", 0),
+      "stab":     sc.get("s", 0)
+    }) -%}
+  {%- endfor -%}
+  {%- if es_stab -%}
+    {%- set prs_sorted = prs | sort(attribute="stab", reverse=true) -%}
+  {%- else -%}
+    {%- set prs_sorted = prs | sort(attribute="golpes") -%}
+  {%- endif -%}
+  {%- set _ = partial_rankings.update({r.name: prs_sorted}) -%}
+{%- endfor -%}
+
+{# Máximo valor para barras de progreso #}
+{%- set ns_max = namespace(val=1) -%}
+{%- for p in participaciones -%}
+  {%- if (p.puntuacion_total_acumulada or 0) > ns_max.val -%}
+    {%- set ns_max.val = p.puntuacion_total_acumulada -%}
+  {%- endif -%}
+{%- endfor -%}
+
+<div class="bracket-wrapper">
+<div class="bracket-stage-row" style="align-items: flex-start;">
+
+{%- for r in rondas -%}
+
+  {%- if not loop.first -%}
+  <!-- Flecha conectora entre columnas -->
+  <div class="connector-col">
+    <svg width="28" height="60" viewBox="0 0 28 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowh{{ loop.index }}" viewBox="0 0 10 10" refX="8" refY="5"
+                markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path d="M2 1 L8 5 L2 9" fill="none" stroke="var(--navy3)"
+                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <path d="M4 30 L24 30" stroke="var(--navy3)" stroke-width="1.5"
+            marker-end="url(#arrowh{{ loop.index }})" stroke-linecap="round"/>
+    </svg>
+  </div>
+  {%- endif -%}
+
+  {%- set es_ultima = loop.last -%}
+  {%- set pr = partial_rankings.get(r.name, []) -%}
+
+  <div class="bracket-col {%- if es_ultima %} is-final{%- endif %}">
+    <div class="bracket-col-header">
+      <div class="ronda-num">Ronda {{ r.numero_de_ronda }}</div>
+      <div class="ronda-fecha">{{ frappe.format(r.fecha, {"fieldtype":"Date"}) }}</div>
+      <span class="pill-estado
+        {%- if r.estado == 'Completada' %} pill-completada
+        {%- elif r.estado == 'En curso' %} pill-encurso
+        {%- else %} pill-pendiente{%- endif %}">
+        {{ r.estado }}</span>
+    </div>
+    <div class="bracket-col-body">
+
+      {%- if r.estado == "Pendiente" -%}
+        <div style="text-align:center;padding:16px 4px;color:var(--text3);font-size:7.5pt;font-style:italic">
+          Ronda pendiente
+        </div>
+      {%- else -%}
+
+        {%- for p in pr -%}
+          {%- set pos = loop.index -%}
+          {%- set sc_ronda = score_map.get(p.jugador ~ "||" ~ r.name) -%}
+          {%- set val_ronda = sc_ronda.stab if (sc_ronda and es_stab) else (sc_ronda.golpes if sc_ronda else None) -%}
+          {%- set acum_val = p.stab if es_stab else p.golpes -%}
+
+          {# Delta de posición respecto a ronda anterior #}
+          {%- set delta = namespace(sym="", cls="delta-same") -%}
+          {%- if not loop.first and rondas[loop.index0 - 1] is defined -%}
+            {%- set pr_prev = partial_rankings.get(rondas[loop.index0 - 1].name, []) -%}
+            {%- for pp in pr_prev -%}
+              {%- if pp.jugador == p.jugador -%}
+                {%- if loop.index < pos -%}
+                  {%- set delta.sym = "▼" -%}{%- set delta.cls = "delta-down" -%}
+                {%- elif loop.index > pos -%}
+                  {%- set delta.sym = "▲" -%}{%- set delta.cls = "delta-up" -%}
+                {%- else -%}
+                  {%- set delta.sym = "=" -%}
+                {%- endif -%}
+              {%- endif -%}
+            {%- endfor -%}
+          {%- endif -%}
+
+          <div class="player-card">
+            <div class="pos-badge
+              {%- if pos == 1 %} pos-1
+              {%- elif pos == 2 %} pos-2
+              {%- elif pos == 3 %} pos-3
+              {%- else %} pos-n{%- endif %}">
+              {{ pos }}
+            </div>
+            <div class="player-info">
+              <div class="player-name">
+                {{ p.nombre or p.jugador }}
+                {%- if delta.sym -%}
+                  <span class="{{ delta.cls }}" style="margin-left:3px">{{ delta.sym }}</span>
+                {%- endif -%}
+              </div>
+              <div class="player-cat">{{ p.categoria }}</div>
+            </div>
+            <div class="player-score">
+              {%- if val_ronda is not none -%}
+              <div class="score-ronda">{{ val_ronda }}</div>
+              <div class="score-acum">acum. {{ acum_val }}</div>
+              {%- else -%}
+              <div class="score-ronda" style="color:var(--text3)">—</div>
+              {%- endif -%}
+            </div>
+          </div>
+        {%- else -%}
+          {# Sin puntuaciones aún en esta ronda #}
+          {%- for p in participaciones -%}
+          <div class="player-card" style="opacity:.55">
+            <div class="pos-badge pos-n">{{ loop.index }}</div>
+            <div class="player-info">
+              <div class="player-name">{{ p.nombre or p.jugador }}</div>
+              <div class="player-cat">{{ p.categoria }}</div>
+            </div>
+          </div>
+          {%- endfor -%}
+        {%- endfor -%}
+      {%- endif -%}
+
+    </div>
+  </div>
+
+{%- endfor -%}
+
+</div><!-- /bracket-stage-row -->
+</div><!-- /bracket-wrapper -->
+
+{%- endif -%}
+
+
+{%- if participaciones -%}
+<div class="standings-section">
+  <div class="standings-title">
+    Clasificación
+    {%- if rondas and rondas[-1].estado == "Completada" %} final
+    {%- else %} actual:{%- endif %}
+    {{ doc.nombre_del_torneo }}
+  </div>
+
+  {%- set ronda_ultima = rondas[-1] if rondas else None -%}
+  {%- set pr_final = partial_rankings.get(ronda_ultima.name, participaciones) if ronda_ultima else participaciones -%}
+  {%- set ns_f = namespace(ref=ns_max.val if ns_max.val > 0 else 1) -%}
+
+  <table class="standings">
+    <thead>
+      <tr>
+        <th class="num" style="width:32px">#</th>
+        <th>Jugador</th>
+        <th>Categoría</th>
+        <th class="num">Hcp</th>
+        {%- for r in rondas -%}
+        <th class="num">R{{ r.numero_de_ronda }}</th>
+        {%- endfor -%}
+        <th class="num">
+          {%- if es_stab %}Pts Stab{% else %}Total{% endif %}
+        </th>
+        <th>Progreso</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for p in pr_final -%}
+        {%- set pos = loop.index -%}
+        {%- set tr_cls = "" -%}
+        {%- if pos == 1 -%}{%- set tr_cls = "podium-1" -%}
+        {%- elif pos == 2 -%}{%- set tr_cls = "podium-2" -%}
+        {%- elif pos == 3 -%}{%- set tr_cls = "podium-3" -%}
+        {%- endif -%}
+        <tr class="{{ tr_cls }}">
+          <td class="num">
+            {%- if pos == 1 %}<strong>{{ pos }}</strong>
+            {%- elif pos == 2 %}{{ pos }}
+            {%- elif pos == 3 %}{{ pos }}
+            {%- else %}{{ pos }}{%- endif %}
+          </td>
+          <td>
+            <strong>{{ p.nombre or p.jugador }}</strong>
+          </td>
+          <td>{{ p.categoria or p.get("cat", "—") }}</td>
+          <td class="num">{{ p.hcp or p.handicap_inscripcion or "—" }}</td>
+          {%- for r in rondas -%}
+            {%- set sc = score_map.get(p.jugador ~ "||" ~ r.name) -%}
+            {%- set rv = sc.stab if (sc and es_stab) else (sc.golpes if sc else None) -%}
+            <td class="num">
+              {%- if rv is not none %}{{ rv }}{%- else -%}
+                <span style="color:var(--text3)">—</span>
+              {%- endif -%}
+            </td>
+          {%- endfor -%}
+          <td class="num"><strong>{{ p.stab if es_stab else p.golpes }}</strong></td>
+          <td>
+            {%- set val = p.stab if es_stab else p.golpes -%}
+            {%- set pct = ((val / ns_f.ref) * 100) | int if ns_f.ref > 0 else 0 -%}
+            {%- set pct = [pct, 100] | min -%}
+            <span class="score-bar-wrap">
+              <span class="score-bar-fill {%- if pos == 1 %} gold{%- endif %}"
+                    style="width:{{ pct }}%"></span>
+            </span>
+          </td>
+        </tr>
+      {%- endfor -%}
+    </tbody>
+  </table>
+</div>
+{%- endif -%}
+
+
 <div class="rpt-footer">
-  {{ doc.nombre_del_torneo }} &nbsp;·&nbsp; Brackets de rondas &nbsp;·&nbsp;
+  {{ doc.nombre_del_torneo }} &nbsp;&middot;&nbsp; Brackets de rondas &nbsp;&middot;&nbsp;
+  {{ formato_doc.tipo_de_formato }} &nbsp;&middot;&nbsp;
   Generado el {{ frappe.format(frappe.utils.now(), {"fieldtype":"Datetime"}) }}
 </div>
+
+</body>
+</html>
