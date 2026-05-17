@@ -24,7 +24,14 @@ def descargar_pdf_torneo(docname, formato):
         frappe.throw(frappe._("Sin permiso."), frappe.PermissionError)
 
     doc = frappe.get_doc("torneo de golf", docname)
-    html = _renderizar(formato, doc)
+
+    # Parámetros de filtro opcionales que vienen en la query string
+    extra = {
+        "categoria":  frappe.form_dict.get("categoria",  "") or "",
+        "ronda_idx":  frappe.form_dict.get("ronda_idx",  "") or "",
+    }
+
+    html = _renderizar(formato, doc, extra)
 
     options = dict(_PDF_OPTIONS)
     if formato in _FORMATOS_LANDSCAPE:
@@ -37,7 +44,7 @@ def descargar_pdf_torneo(docname, formato):
     frappe.local.response.type = "pdf"
 
 
-def _renderizar(formato, doc):
+def _renderizar(formato, doc, extra=None):
     import os
     app_path = frappe.get_app_path("golf_manager")
     template_path = os.path.join(app_path, "print_format", f"{formato}.html")
@@ -47,7 +54,12 @@ def _renderizar(formato, doc):
 
     template_src = open(template_path).read()
     env = get_jenv()
-    body = env.from_string(template_src).render(doc=doc, frappe=frappe)
+
+    render_ctx = {"doc": doc, "frappe": frappe}
+    if extra:
+        render_ctx.update(extra)
+
+    body = env.from_string(template_src).render(**render_ctx)
 
     return f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8">

@@ -33,7 +33,7 @@ frappe.ui.form.on("torneo de golf", {
 		}, __("Reportes"));
 
 		frm.add_custom_button(__("PDF — Puntuaciones por jugador"), () => {
-			_descargar_pdf(frm, "puntuaciones_torneo");
+			_dialogo_filtro_puntuaciones(frm);
 		}, __("Reportes"));
 
 		if (frm.doc.docstatus === 1 && frm.doc.estado === "Activo") {
@@ -177,16 +177,89 @@ frappe.ui.form.on("torneo de golf", {
 });
 
 
-function _descargar_pdf(frm, formato) {
-    const params = new URLSearchParams({
-        docname: frm.doc.name,
-        formato,
-        cmd: "golf_manager.golf_manager.pdf_export.descargar_pdf_torneo",
-    });
-    window.open(`/api/method/golf_manager.golf_manager.pdf_export.descargar_pdf_torneo?${params}`, "_blank");
+// ── Descarga PDF genérica (sin filtros) ────────────────────────────────────
+function _descargar_pdf(frm, formato, extra_params) {
+	const params = new URLSearchParams({
+		docname: frm.doc.name,
+		formato,
+		cmd: "golf_manager.golf_manager.pdf_export.descargar_pdf_torneo",
+		...(extra_params || {}),
+	});
+	window.open(
+		`/api/method/golf_manager.golf_manager.pdf_export.descargar_pdf_torneo?${params}`,
+		"_blank"
+	);
 }
 
 
+// ── Diálogo de filtros para el PDF de puntuaciones ─────────────────────────
+function _dialogo_filtro_puntuaciones(frm) {
+	// Cargar rondas y categorías del torneo para poblar el diálogo
+	Promise.all([
+		frappe.db.get_list("ronda", {
+			filters:  { torneo: frm.doc.name },
+			fields:   ["name", "numero_de_ronda", "fecha", "estado"],
+			order_by: "numero_de_ronda asc",
+		}),
+		frappe.db.get_list("participacion en torneo", {
+			filters: { torneo: frm.doc.name },
+			fields:  ["categoria"],
+			limit:   100,
+		}),
+	]).then(([rondas, parts]) => {
+		// Opciones de ronda
+		const ronda_opts = [{ value: "", label: __("Todas las rondas") }].concat(
+			rondas.map((r) => ({
+				value: String(r.numero_de_ronda),
+				label: `${__("Ronda")} ${r.numero_de_ronda} — ${frappe.datetime.str_to_user(r.fecha)} (${r.estado})`,
+			}))
+		);
+
+		// Opciones de categoría (únicas, ordenadas)
+		const cats = [...new Set(parts.map((p) => p.categoria).filter(Boolean))].sort();
+		const cat_opts = [{ value: "", label: __("Todas las categorías") }].concat(
+			cats.map((c) => ({ value: c, label: c }))
+		);
+
+		const d = new frappe.ui.Dialog({
+			title: __("Descargar PDF — Puntuaciones por jugador"),
+			fields: [
+				{
+					fieldname: "ronda_idx",
+					fieldtype: "Select",
+					label:     __("Filtrar por ronda"),
+					options:   ronda_opts.map((o) => o.label).join("\n"),
+					default:   ronda_opts[0].label,
+				},
+				{
+					fieldname: "categoria",
+					fieldtype: "Select",
+					label:     __("Filtrar por categoría"),
+					options:   cat_opts.map((o) => o.label).join("\n"),
+					default:   cat_opts[0].label,
+				},
+			],
+			primary_action_label: __("Descargar PDF"),
+			primary_action(values) {
+				d.hide();
+
+				// Mapear label → value
+				const ronda_sel = ronda_opts.find((o) => o.label === values.ronda_idx);
+				const cat_sel   = cat_opts.find((o) => o.label === values.categoria);
+
+				const extra = {};
+				if (ronda_sel && ronda_sel.value) extra.ronda_idx = ronda_sel.value;
+				if (cat_sel   && cat_sel.value)   extra.categoria  = cat_sel.value;
+
+				_descargar_pdf(frm, "puntuaciones_torneo", extra);
+			},
+		});
+		d.show();
+	});
+}
+
+
+// ── Modal de ranking ────────────────────────────────────────────────────────
 function _mostrar_ranking_dialog(data) {
 	if (!data || !data.ranking) {
 		frappe.msgprint(__("No hay datos de ranking disponibles."));

@@ -1,11 +1,24 @@
 {#
   Print Format : puntuaciones_torneo
   DocType      : torneo de golf
+  Filtros disponibles:
+    categoria  – filtra participantes por categoría
+    ronda_idx  – muestra solo esa ronda
 #}
 
-{%- set filtro_grupo   = frappe.form_dict.get("grupo",     "") | string | trim -%}
-{%- set filtro_ronda_i = frappe.form_dict.get("ronda_idx", "") | string | trim -%}
-{%- set hay_filtro     = filtro_grupo | length > 0 -%}
+{%- set filtro_categoria = (categoria  if categoria  is defined else "") | string | trim -%}
+{%- set filtro_ronda_i   = (ronda_idx  if ronda_idx  is defined else "") | string | trim -%}
+
+{%- if not filtro_categoria -%}
+  {%- set filtro_categoria = frappe.form_dict.get("categoria",  "") | string | trim -%}
+{%- endif -%}
+{%- if not filtro_ronda_i -%}
+  {%- set filtro_ronda_i = frappe.form_dict.get("ronda_idx", "") | string | trim -%}
+{%- endif -%}
+
+{%- set hay_filtro_cat   = filtro_categoria | length > 0 -%}
+{%- set hay_filtro_ronda = filtro_ronda_i   | length > 0 -%}
+{%- set hay_filtro       = hay_filtro_cat or hay_filtro_ronda -%}
 
 {%- set campo_doc   = frappe.get_doc("campo de golf",     doc.campo_de_golf) -%}
 {%- set formato_doc = frappe.get_doc("formato de torneo", doc.formato) -%}
@@ -17,7 +30,8 @@
       fields   = ["name","numero_de_ronda","fecha","estado"],
       order_by = "numero_de_ronda asc") -%}
 
-{%- if filtro_ronda_i | length > 0 -%}
+{# Filtrar rondas a mostrar según ronda_idx #}
+{%- if hay_filtro_ronda -%}
   {%- set ri = (filtro_ronda_i | int) - 1 -%}
   {%- if ri >= 0 and ri < rondas_all | length -%}
     {%- set rondas = [rondas_all[ri]] -%}
@@ -28,6 +42,7 @@
   {%- set rondas = rondas_all -%}
 {%- endif -%}
 
+{# Todos los participantes #}
 {%- set participaciones_all = frappe.db.sql("""
   SELECT pt.jugador, pt.categoria, pt.handicap_inscripcion,
          pt.puntuacion_total_acumulada, pt.posicion_en_ranking,
@@ -37,6 +52,26 @@
   WHERE pt.torneo = %s
   ORDER BY pt.posicion_en_ranking ASC, pt.puntuacion_total_acumulada ASC
 """, doc.name, as_dict=True) -%}
+
+{# Aplicar filtro de categoría #}
+{%- if hay_filtro_cat -%}
+  {%- set participaciones = [] -%}
+  {%- for p in participaciones_all -%}
+    {%- if p.categoria == filtro_categoria -%}
+      {%- set _ = participaciones.append(p) -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- else -%}
+  {%- set participaciones = participaciones_all -%}
+{%- endif -%}
+
+{# Categorías disponibles para el panel de filtros en pantalla #}
+{%- set categorias_disponibles = [] -%}
+{%- for p in participaciones_all -%}
+  {%- if p.categoria and p.categoria not in categorias_disponibles -%}
+    {%- set _ = categorias_disponibles.append(p.categoria) -%}
+  {%- endif -%}
+{%- endfor -%}
 
 {%- set ronda_names_all = rondas_all | map(attribute="name") | list -%}
 {%- if ronda_names_all -%}
@@ -51,11 +86,6 @@
   {%- set grupos_data = [] -%}
 {%- endif -%}
 
-{%- set jugador_grupo = {} -%}
-{%- for gd in grupos_data -%}
-  {%- set _ = jugador_grupo.update({gd.jugador~"||"~gd.ronda: gd.nombre_del_grupo}) -%}
-{%- endfor -%}
-
 {%- set grupos_por_ronda = {} -%}
 {%- for gd in grupos_data -%}
   {%- if gd.ronda not in grupos_por_ronda -%}
@@ -65,18 +95,6 @@
     {%- set _ = grupos_por_ronda[gd.ronda].append(gd.nombre_del_grupo) -%}
   {%- endif -%}
 {%- endfor -%}
-
-{%- if hay_filtro and rondas | length == 1 -%}
-  {%- set ronda_filtro_name = rondas[0].name -%}
-  {%- set participaciones = [] -%}
-  {%- for p in participaciones_all -%}
-    {%- if jugador_grupo.get(p.jugador~"||"~ronda_filtro_name, "") == filtro_grupo -%}
-      {%- set _ = participaciones.append(p) -%}
-    {%- endif -%}
-  {%- endfor -%}
-{%- else -%}
-  {%- set participaciones = participaciones_all -%}
-{%- endif -%}
 
 {%- set ronda_names = rondas | map(attribute="name") | list -%}
 {%- if ronda_names -%}
@@ -105,7 +123,6 @@
   {%- endif -%}
 {%- endfor -%}
 
-{#   Frappe expone request.path y frappe.utils.get_url()                      #}
 {%- set base_qs = "doctype=torneo+de+golf&name=" ~ doc.name ~ "&format=puntuaciones_torneo&no_letterhead=0" -%}
 
 <style>
@@ -134,70 +151,32 @@ body {
   margin-bottom: 14px;
   font-size: 8.5pt;
 }
-.filter-panel h3 {
-  font-size: 9.5pt;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
+.filter-panel h3 { font-size: 9.5pt; font-weight: 700; margin-bottom: 10px; }
 .filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 8px; margin-bottom: 6px;
 }
 .filter-row:last-child { margin-bottom: 0; }
-.filter-row label {
-  font-size: 8pt;
-  font-weight: 600;
-  opacity: .8;
-  min-width: 80px;
-}
+.filter-row label { font-size: 8pt; font-weight: 600; opacity: .8; min-width: 110px; }
 .filter-row select {
-  padding: 3px 8px;
-  border-radius: 3px;
-  border: none;
-  font-size: 8pt;
-  font-family: inherit;
-  min-width: 180px;
-  cursor: pointer;
+  padding: 3px 8px; border-radius: 3px; border: none;
+  font-size: 8pt; font-family: inherit; min-width: 200px; cursor: pointer;
 }
 .filter-row button {
-  padding: 3px 12px;
-  border-radius: 3px;
-  border: 1.5px solid #fff;
-  background: rgba(255,255,255,.15);
-  color: #fff;
-  font-size: 8pt;
-  font-family: inherit;
-  font-weight: 600;
-  cursor: pointer;
+  padding: 3px 12px; border-radius: 3px; border: 1.5px solid #fff;
+  background: rgba(255,255,255,.15); color: #fff;
+  font-size: 8pt; font-family: inherit; font-weight: 600; cursor: pointer;
 }
 .filter-row button:hover { background: rgba(255,255,255,.3); }
-.filter-row a.reset-btn {
-  color: rgba(255,255,255,.7);
-  font-size: 7.5pt;
-  text-decoration: underline;
-  cursor: pointer;
-}
 .filter-active-badge {
-  display: inline-block;
-  background: #e67e22;
-  color: #fff;
-  font-size: 7pt;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 3px;
+  display: inline-block; background: #e67e22; color: #fff;
+  font-size: 7pt; font-weight: 700; padding: 2px 8px; border-radius: 3px;
 }
 .filter-empty { font-size: 8pt; opacity: .7; font-style: italic; }
 
 .doc-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  border-bottom: 3px solid #1a5276;
-  padding-bottom: 6px;
-  margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  border-bottom: 3px solid #1a5276; padding-bottom: 6px; margin-bottom: 10px;
 }
 .doc-header h1 { font-size: 13pt; font-weight: 800; color: #1a5276; margin-bottom: 2px; }
 .doc-header .sub  { font-size: 7.5pt; color: #555; line-height: 1.5; }
@@ -225,17 +204,11 @@ body {
 .pill-ok   { background:#28a745; color:#fff; }
 
 .sc-wrap {
-  width: 100%;
-  border: 1px solid #1a5276;
-  border-top: none;
-  border-radius: 0 0 4px 4px;
-  margin-bottom: 4px;
+  width: 100%; border: 1px solid #1a5276; border-top: none;
+  border-radius: 0 0 4px 4px; margin-bottom: 4px;
 }
 table.scorecard {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 6.8pt;
-  table-layout: fixed;
+  width: 100%; border-collapse: collapse; font-size: 6.8pt; table-layout: fixed;
 }
 table.scorecard col.c-pos    { width: 22px; }
 table.scorecard col.c-player { width: 90px; }
@@ -311,82 +284,97 @@ td.c-tot,th.c-tot { background:#1a5276 !important; color:#fff !important;
 }
 </style>
 
-{# ══════════════════════════════════════════════════════════════════════════════
-   PANEL DE FILTROS — solo pantalla (class="no-print")
-   Usa <form method="GET" action="/printview"> con <select> y <button submit>.
-   El navegador codifica los valores del select automáticamente al hacer submit.
-   wkhtmltopdf no renderiza este bloque porque está oculto en @media print.
-   ══════════════════════════════════════════════════════════════════════════════ #}
+{# ══════════════════════════════════════════════════════════════════════════
+   PANEL DE FILTROS — solo pantalla
+   ══════════════════════════════════════════════════════════════════════════ #}
 <div class="filter-panel no-print">
-  <h3>&#128269; Filtrar scorecard por grupo de salida</h3>
+  <h3>&#128269; Filtrar scorecard</h3>
 
+  {# Filtro por categoría #}
+  <form method="GET" action="/printview" style="margin-bottom:8px">
+    <input type="hidden" name="doctype"       value="torneo de golf">
+    <input type="hidden" name="name"          value="{{ doc.name }}">
+    <input type="hidden" name="format"        value="puntuaciones_torneo">
+    <input type="hidden" name="no_letterhead" value="0">
+    {%- if hay_filtro_ronda -%}
+    <input type="hidden" name="ronda_idx" value="{{ filtro_ronda_i }}">
+    {%- endif -%}
+    <div class="filter-row">
+      <label for="sel-cat">Categoría</label>
+      <select id="sel-cat" name="categoria">
+        <option value="">— Todas las categorías —</option>
+        {%- for cat in categorias_disponibles -%}
+        <option value="{{ cat }}"
+          {%- if hay_filtro_cat and filtro_categoria == cat %} selected{%- endif %}>
+          {{ cat }}
+        </option>
+        {%- endfor -%}
+      </select>
+      <button type="submit">Filtrar</button>
+      {%- if hay_filtro_cat -%}
+      &nbsp;
+      <a href="/printview?{{ base_qs }}{%- if hay_filtro_ronda %}&ronda_idx={{ filtro_ronda_i }}{%- endif %}"
+         style="color:rgba(255,255,255,.75);font-size:7.5pt;text-decoration:underline">
+        &#10005; Quitar filtro categoría
+      </a>
+      {%- endif -%}
+    </div>
+  </form>
+
+  {# Filtros por ronda y grupo #}
   {%- set hay_grupos = [] -%}
   {%- for ronda in rondas_all -%}
     {%- set grupos_r = grupos_por_ronda.get(ronda.name, []) -%}
     {%- if grupos_r | length > 0 -%}
       {%- set _ = hay_grupos.append(1) -%}
-
       <form method="GET" action="/printview" style="margin-bottom:6px">
-        {# Campos ocultos: parámetros fijos del printview #}
         <input type="hidden" name="doctype"       value="torneo de golf">
         <input type="hidden" name="name"          value="{{ doc.name }}">
         <input type="hidden" name="format"        value="puntuaciones_torneo">
         <input type="hidden" name="no_letterhead" value="0">
         <input type="hidden" name="ronda_idx"     value="{{ ronda.numero_de_ronda }}">
-
+        {%- if hay_filtro_cat -%}
+        <input type="hidden" name="categoria" value="{{ filtro_categoria }}">
+        {%- endif -%}
         <div class="filter-row">
-          <label for="sel-r{{ ronda.numero_de_ronda }}">
-            Ronda {{ ronda.numero_de_ronda }}
+          <label>Ronda {{ ronda.numero_de_ronda }}
             <span style="opacity:.65;font-weight:400">
               ({{ frappe.format(ronda.fecha, {"fieldtype":"Date"}) }})
             </span>
           </label>
-
-          <select id="sel-r{{ ronda.numero_de_ronda }}" name="grupo">
-            <option value="">— Todos los grupos —</option>
-            {%- for grupo in grupos_r -%}
-            <option value="{{ grupo }}"
-              {%- if hay_filtro and filtro_grupo == grupo
-                    and filtro_ronda_i == ronda.numero_de_ronda | string %} selected{%- endif %}>
-              {{ grupo }}
-            </option>
-            {%- endfor -%}
-          </select>
-
-          <button type="submit">Ver grupo</button>
-
-          {%- if hay_filtro and filtro_ronda_i == ronda.numero_de_ronda | string -%}
+          <button type="submit">Solo esta ronda</button>
+          {%- if hay_filtro_ronda and filtro_ronda_i == ronda.numero_de_ronda | string -%}
           &nbsp;
-          <a href="/printview?{{ base_qs }}"
+          <a href="/printview?{{ base_qs }}{%- if hay_filtro_cat %}&categoria={{ filtro_categoria | urlencode }}{%- endif %}"
              style="color:rgba(255,255,255,.75);font-size:7.5pt;text-decoration:underline">
-            &#10005; Quitar filtro
+            &#10005; Quitar filtro ronda
           </a>
           {%- endif -%}
         </div>
       </form>
-
     {%- endif -%}
   {%- endfor -%}
 
-  {%- if not hay_grupos -%}
-  <p class="filter-empty">
-    No hay grupos de salida definidos para este torneo.
-    Créalos desde <strong>Grupo por Ronda</strong>.
-  </p>
+  {%- if not hay_grupos and not categorias_disponibles -%}
+  <p class="filter-empty">No hay participantes ni grupos definidos para este torneo.</p>
   {%- endif -%}
 </div>
 
-{# ══════════════════════════════════════════════════════════════════════════════
+{# ══════════════════════════════════════════════════════════════════════════
    CABECERA
-   ══════════════════════════════════════════════════════════════════════════════ #}
+   ══════════════════════════════════════════════════════════════════════════ #}
 <div class="doc-header">
   <div>
     <h1>
       Scorecard &#8212; Puntuaciones por Jugador
       {%- if hay_filtro -%}
-        &nbsp;<span class="filter-active-badge">
-          {{ filtro_grupo }} &#183; R{{ filtro_ronda_i }}
-        </span>
+        &nbsp;
+        {%- if hay_filtro_cat -%}
+          <span class="filter-active-badge">{{ filtro_categoria }}</span>
+        {%- endif -%}
+        {%- if hay_filtro_ronda -%}
+          <span class="filter-active-badge">R{{ filtro_ronda_i }}</span>
+        {%- endif -%}
       {%- endif -%}
     </h1>
     <div class="sub">
@@ -416,9 +404,13 @@ td.c-tot,th.c-tot { background:#1a5276 !important; color:#fff !important;
     <span class="val">{{ campo_doc.par_total }}</span></div>
   <div class="item"><span class="lbl">Desempate</span>
     <span class="val">{{ formato_doc.criterio_de_desempate }}</span></div>
-  {%- if hay_filtro -%}
-  <div class="item"><span class="lbl">Filtro activo</span>
-    <span class="val" style="color:#e67e22">{{ filtro_grupo }}</span></div>
+  {%- if hay_filtro_cat -%}
+  <div class="item"><span class="lbl">Categoría</span>
+    <span class="val" style="color:#e67e22">{{ filtro_categoria }}</span></div>
+  {%- endif -%}
+  {%- if hay_filtro_ronda -%}
+  <div class="item"><span class="lbl">Ronda</span>
+    <span class="val" style="color:#e67e22">{{ filtro_ronda_i }}</span></div>
   {%- endif -%}
 </div>
 
@@ -437,9 +429,9 @@ td.c-tot,th.c-tot { background:#1a5276 !important; color:#fff !important;
   &#183; (E)=Empate
 </p>
 
-{# ══════════════════════════════════════════════════════════════════════════════
+{# ══════════════════════════════════════════════════════════════════════════
    LOOP DE RONDAS
-   ══════════════════════════════════════════════════════════════════════════════ #}
+   ══════════════════════════════════════════════════════════════════════════ #}
 {%- for ronda in rondas -%}
 {%- if not loop.first %}<div class="page-break"></div>{%- endif -%}
 
@@ -450,8 +442,8 @@ td.c-tot,th.c-tot { background:#1a5276 !important; color:#fff !important;
 <div class="round-header">
   <h2>Ronda {{ ronda.numero_de_ronda }}</h2>
   <span class="pill {{ ec }}">{{ ronda.estado }}</span>
-  {%- if hay_filtro -%}
-  <span class="pill" style="background:#e67e22;">{{ filtro_grupo }}</span>
+  {%- if hay_filtro_cat -%}
+  <span class="pill" style="background:#e67e22;">{{ filtro_categoria }}</span>
   {%- endif -%}
   <span class="rh-meta">{{ frappe.format(ronda.fecha, {"fieldtype":"Date"}) }}</span>
 </div>
@@ -494,7 +486,7 @@ td.c-tot,th.c-tot { background:#1a5276 !important; color:#fff !important;
     <tbody>
       {%- if not participaciones -%}
       <tr><td class="empty-note" colspan="24">
-        {%- if hay_filtro -%}Sin jugadores en "{{ filtro_grupo }}" para esta ronda.
+        {%- if hay_filtro_cat -%}Sin jugadores en la categoría "{{ filtro_categoria }}".
         {%- else -%}Sin participantes inscritos.{%- endif -%}
       </td></tr>
       {%- endif -%}
@@ -606,7 +598,8 @@ td.c-tot,th.c-tot { background:#1a5276 !important; color:#fff !important;
 
 <div class="doc-footer">
   {{ doc.nombre_del_torneo }}
-  {%- if hay_filtro %} &#183; {{ filtro_grupo }} &#183; R{{ filtro_ronda_i }}{%- endif %}
+  {%- if hay_filtro_cat %} &#183; {{ filtro_categoria }}{%- endif %}
+  {%- if hay_filtro_ronda %} &#183; R{{ filtro_ronda_i }}{%- endif %}
   &#160;&#183;&#160; Scorecard &#160;&#183;&#160;
   Generado el {{ frappe.format(frappe.utils.now(), {"fieldtype":"Datetime"}) }}
   &#160;&#183;&#160;
