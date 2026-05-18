@@ -28,11 +28,11 @@ frappe.ui.form.on("torneo de golf", {
 			});
 		}, __("Reportes"));
 
-		frm.add_custom_button(__("PDF — Brackets de rondas"), () => {
-			_descargar_pdf(frm, "brackets_torneo");
+		frm.add_custom_button(__("Brackets de rondas"), () => {
+			_dialogo_filtro_brackets(frm);
 		}, __("Reportes"));
 
-		frm.add_custom_button(__("PDF — Puntuaciones por jugador"), () => {
+		frm.add_custom_button(__("Puntuaciones por jugador"), () => {
 			_dialogo_filtro_puntuaciones(frm);
 		}, __("Reportes"));
 
@@ -177,7 +177,6 @@ frappe.ui.form.on("torneo de golf", {
 });
 
 
-// ── Descarga PDF genérica (sin filtros) ────────────────────────────────────
 function _descargar_pdf(frm, formato, extra_params) {
 	const params = new URLSearchParams({
 		docname: frm.doc.name,
@@ -192,9 +191,46 @@ function _descargar_pdf(frm, formato, extra_params) {
 }
 
 
-// ── Diálogo de filtros para el PDF de puntuaciones ─────────────────────────
+function _dialogo_filtro_brackets(frm) {
+	frappe.db.get_list("participacion en torneo", {
+		filters: { torneo: frm.doc.name },
+		fields:  ["categoria"],
+		limit:   100,
+	}).then((parts) => {
+		// Categorías únicas y ordenadas
+		const cats = [...new Set(parts.map((p) => p.categoria).filter(Boolean))].sort();
+		const cat_opts = [{ value: "", label: __("Todas las categorías") }].concat(
+			cats.map((c) => ({ value: c, label: c }))
+		);
+
+		const d = new frappe.ui.Dialog({
+			title: __("Descargar PDF — Brackets de rondas"),
+			fields: [
+				{
+					fieldname: "categoria",
+					fieldtype: "Select",
+					label:     __("Filtrar por categoría"),
+					options:   cat_opts.map((o) => o.label).join("\n"),
+					default:   cat_opts[0].label,
+				},
+			],
+			primary_action_label: __("Descargar PDF"),
+			primary_action(values) {
+				d.hide();
+
+				const cat_sel = cat_opts.find((o) => o.label === values.categoria);
+				const extra = {};
+				if (cat_sel && cat_sel.value) extra.categoria = cat_sel.value;
+
+				_descargar_pdf(frm, "brackets_torneo", extra);
+			},
+		});
+		d.show();
+	});
+}
+
+
 function _dialogo_filtro_puntuaciones(frm) {
-	// Cargar rondas y categorías del torneo para poblar el diálogo
 	Promise.all([
 		frappe.db.get_list("ronda", {
 			filters:  { torneo: frm.doc.name },
@@ -207,7 +243,6 @@ function _dialogo_filtro_puntuaciones(frm) {
 			limit:   100,
 		}),
 	]).then(([rondas, parts]) => {
-		// Opciones de ronda
 		const ronda_opts = [{ value: "", label: __("Todas las rondas") }].concat(
 			rondas.map((r) => ({
 				value: String(r.numero_de_ronda),
@@ -215,7 +250,6 @@ function _dialogo_filtro_puntuaciones(frm) {
 			}))
 		);
 
-		// Opciones de categoría (únicas, ordenadas)
 		const cats = [...new Set(parts.map((p) => p.categoria).filter(Boolean))].sort();
 		const cat_opts = [{ value: "", label: __("Todas las categorías") }].concat(
 			cats.map((c) => ({ value: c, label: c }))
@@ -243,7 +277,6 @@ function _dialogo_filtro_puntuaciones(frm) {
 			primary_action(values) {
 				d.hide();
 
-				// Mapear label → value
 				const ronda_sel = ronda_opts.find((o) => o.label === values.ronda_idx);
 				const cat_sel   = cat_opts.find((o) => o.label === values.categoria);
 
@@ -259,7 +292,6 @@ function _dialogo_filtro_puntuaciones(frm) {
 }
 
 
-// ── Modal de ranking ────────────────────────────────────────────────────────
 function _mostrar_ranking_dialog(data) {
 	if (!data || !data.ranking) {
 		frappe.msgprint(__("No hay datos de ranking disponibles."));
