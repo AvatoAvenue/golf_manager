@@ -1,6 +1,19 @@
 // Copyright (c) 2026, avato and contributors
 // For license information, please see license.txt
 
+if (typeof MOTIVOS_PENALIZACION === "undefined") {
+	var MOTIVOS_PENALIZACION = [
+		"Bola fuera de limites",
+		"Bola perdida",
+		"Hazard de agua",
+		"Hazard lateral",
+		"Obstruccion inmovible",
+		"Obstruccion movible",
+		"Terraplay incorrecto",
+		"Otro",
+	];
+}
+
 frappe.ui.form.on("torneo de golf", {
 
 	refresh(frm) {
@@ -228,7 +241,8 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 		<li class="nav-item">
 			<a class="nav-link ${i === 0 ? "active" : ""} golf-cap-tab"
 				data-tab="${r.name}"
-				href="#golf-cap-panel-${i}"
+				href="#"
+				data-panel="golf-cap-panel-${i}"
 				style="font-size:12px;padding:6px 12px">
 				<span style="display:inline-block;width:8px;height:8px;border-radius:50%;
 					background:${COLOR_ESTADO[r.estado] || "#ccc"};margin-right:5px"></span>
@@ -258,16 +272,16 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 			.golf-cap-wrap th.col-jugador { width:130px; text-align:left; padding-left:6px; }
 			.golf-cap-wrap td.td-jugador  { text-align:left; padding-left:6px; white-space:nowrap;
 				overflow:hidden; text-overflow:ellipsis; max-width:130px; }
-			.golf-cap-wrap th.col-hoyo  { width:28px; }
+			.golf-cap-wrap th.col-hoyo  { width:40px; min-width: 40px }
 			.golf-cap-wrap th.col-sub   { width:34px; background:#2e6aa8; color:#fff; }
 			.golf-cap-wrap th.col-accion{ width:70px; }
 			.golf-cap-wrap tr.fila-par th { background:#d6eaf8; color:#1a5276; font-weight:700; font-size:10px; }
 			.golf-cap-wrap tr.fila-par input.par-input {
-				width:22px; text-align:center; border:none; background:transparent;
+				width:34px; text-align:center; border:none; background:transparent;
 				font-weight:700; font-size:10px; color:#1a5276; padding:0;
 			}
 			.golf-cap-wrap input.golpe-input {
-				width:22px; text-align:center; border:1px solid #ced4da;
+				width:34px; text-align:center; border:1px solid #ced4da;
 				border-radius:2px; font-size:11px; padding:1px; background:#fff;
 			}
 			.golf-cap-wrap input.golpe-input:focus { outline:2px solid #2e86c1; border-color:#2e86c1; }
@@ -308,8 +322,8 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 		d.$wrapper.find(".golf-cap-tab").removeClass("active");
 		d.$wrapper.find(".tab-pane").removeClass("active");
 		$(this).addClass("active");
-		const target = $(this).attr("href");
-		d.$wrapper.find(target).addClass("active");
+		const target = $(this).attr("data-panel");
+		d.$wrapper.find("#" + target).addClass("active");
 	});
 
 	_vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_actual);
@@ -534,16 +548,6 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 
 		_abrir_dialogo_penalizaciones(key, pens_local, (nuevas_pens) => {
 			pens_local[key] = nuevas_pens;
-			const MOTIVOS_PENALIZACION = [
-				"Bola fuera de limites",
-				"Bola perdida",
-				"Hazard de agua",
-				"Hazard lateral",
-				"Obstruccion inmovible",
-				"Obstruccion movible",
-				"Terraplay incorrecto",
-				"Otro",
-			];
 
 			const $input   = panel.find(`input.golpe-input[data-jugador="${jugador}"][data-hoyo="${hoyo}"]`);
 			const $trigger = panel.find(`span.pen-trigger[data-jugador="${jugador}"][data-hoyo="${hoyo}"]`);
