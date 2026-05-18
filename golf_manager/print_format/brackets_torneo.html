@@ -4,7 +4,6 @@
   Filtros disponibles: categoria
 #}
 
-{# Leer filtro de categoría desde contexto o form_dict #}
 {%- set filtro_categoria = (categoria if categoria is defined else "") | string | trim -%}
 {%- if not filtro_categoria -%}
   {%- set filtro_categoria = frappe.form_dict.get("categoria", "") | string | trim -%}
@@ -31,7 +30,6 @@
   ORDER BY pt.posicion_en_ranking ASC, pt.puntuacion_total_acumulada ASC
 """, doc.name, as_dict=True) -%}
 
-{# Aplicar filtro de categoría #}
 {%- if hay_filtro_cat -%}
   {%- set participaciones = [] -%}
   {%- for p in participaciones_all -%}
@@ -43,7 +41,6 @@
   {%- set participaciones = participaciones_all -%}
 {%- endif -%}
 
-{# Categorías disponibles para el panel de filtros en pantalla #}
 {%- set categorias_disponibles = [] -%}
 {%- for p in participaciones_all -%}
   {%- if p.categoria and p.categoria not in categorias_disponibles -%}
@@ -361,10 +358,6 @@ table.standings tbody tr.podium-3 td { background: #fdf0e8; }
 
 {%- elif es_match -%}
 
-{# ════════════════════════════════════════════════════════
-   MATCH PLAY
-   ════════════════════════════════════════════════════════ #}
-
 {%- set ronda_1 = rondas[0] if rondas else None -%}
 {%- set grupos_r1 = frappe.db.sql("""
   SELECT g.name, g.nombre_del_grupo, g.hora_de_salida
@@ -398,7 +391,7 @@ table.standings tbody tr.podium-3 td { background: #fdf0e8; }
     <div class="col-body">
       {%- if grupos_r1 -%}
         {%- for g in grupos_r1 -%}
-        <div class="group-label">{{ g.nombre_del_grupo }}{%- if g.hora_de_salida %} · {{ g.hora_de_salida[:5] }}{%- endif %}</div>
+        <div class="group-label">{{ g.nombre_del_grupo }}{%- if g.hora_de_salida %} · {{ g.hora_de_salida.strftime('%H:%M') }}{%- endif %}</div>
         {%- for j in jugadores_x_grupo.get(g.name, []) -%}
           {%- set sc = score_map.get(j.jugador ~ "||" ~ ronda_1.name) -%}
           {%- set val = sc.stab if (sc and es_stab) else (sc.golpes if sc else None) -%}
@@ -465,10 +458,6 @@ table.standings tbody tr.podium-3 td { background: #fdf0e8; }
 </tr></tbody></table>
 
 {%- else -%}
-
-{# ════════════════════════════════════════════════════════
-   STROKE PLAY / STABLEFORD — progresión de posiciones
-   ════════════════════════════════════════════════════════ #}
 
 {%- set partial_rankings = {} -%}
 {%- for r in rondas -%}
@@ -549,7 +538,7 @@ table.standings tbody tr.podium-3 td { background: #fdf0e8; }
           {%- set val_ronda = sc_ronda.stab if (sc_ronda and es_stab) else (sc_ronda.golpes if sc_ronda else None) -%}
           {%- set acum_val  = p.stab if es_stab else p.golpes -%}
 
-          {# Delta: solo ▲ o ▼, nada si igual o primera ronda #}
+          {# Solo ▲ o ▼, nada si igual o primera ronda #}
           {%- set delta = namespace(sym="", cls="") -%}
           {%- if loop.index0 > 0 and rondas[loop.index0 - 1] is defined -%}
             {%- set pr_prev = partial_rankings.get(rondas[loop.index0 - 1].name, []) -%}
@@ -601,10 +590,7 @@ table.standings tbody tr.podium-3 td { background: #fdf0e8; }
 {%- endif -%}
 
 
-{# ════════════════════════════════════════════════════════
-   TABLA DE CLASIFICACIÓN FINAL
-   ════════════════════════════════════════════════════════ #}
-{%- if participaciones -%}
+{%- if not es_match and participaciones -%}
 <div class="standings-section">
   <div class="standings-title">
     Clasificación
