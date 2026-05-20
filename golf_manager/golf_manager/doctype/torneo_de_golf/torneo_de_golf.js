@@ -108,7 +108,7 @@ frappe.ui.form.on("torneo de golf", {
 								</a>
 							</td>
 						</tr>`).join("")
-					: `<tr><td colspan="4" class="text-center text-muted">${__("Sin rondas creadas.")}</td></tr>`;
+					: `<td><td colspan="4" class="text-center text-muted">${__("Sin rondas creadas.")}</td></tr>`;
 
 				const html = `
 					<div class="${PANEL}"
@@ -216,28 +216,46 @@ function _abrir_captura_puntuaciones(frm) {
 				return;
 			}
 
+			// Estructurar puntuaciones existentes
 			const scores = {};
 			for (const p of puntuaciones) {
 				if (!scores[p.ronda]) scores[p.ronda] = {};
 				if (!scores[p.ronda][p.jugador]) scores[p.ronda][p.jugador] = {};
 				scores[p.ronda][p.jugador][p.numero_de_hoyo] = {
-					golpes:        p.golpes_brutos || "",
-					par:           p.par_del_hoyo  || par_por_hoyo[p.numero_de_hoyo] || 4,
+					golpes:         p.golpes_brutos || "",
+					par:            p.par_del_hoyo  || par_por_hoyo[p.numero_de_hoyo] || 4,
 					penalizaciones: p.penalizaciones || [],
 				};
 			}
 
-			_construir_dialogo_captura(frm, rondas, participantes, scores, par_por_hoyo);
+			const categorias = [...new Set(participantes.map(p => p.categoria).filter(Boolean))].sort();
+
+			_construir_dialogo_captura(frm, rondas, participantes, scores, par_por_hoyo, categorias);
 		},
 	});
 }
 
-function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_hoyo) {
+function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_hoyo, categorias) {
 	const par_actual = Object.assign({}, par_por_hoyo);
+	let cat_activa = "";
 
 	const COLOR_ESTADO = { Pendiente: "#8d99a6", "En curso": "#f39c12", Completada: "#27ae60" };
 
-	const tabs_nav   = rondas.map((r, i) => `
+	const cat_opts_html = `
+		<option value="">Todas las categorías</option>
+		${categorias.map(c => `<option value="${c}">${c}</option>`).join("")}`;
+
+	const filtro_html = categorias.length > 1 ? `
+		<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+			<label style="font-size:12px;font-weight:600;color:#555">Categoría:</label>
+			<select id="golf-cap-cat-filter" class="form-control" style="width:200px;font-size:12px;height:28px;padding:2px 6px">
+				${cat_opts_html}
+			</select>
+			<span id="golf-cap-cat-count" style="font-size:11px;color:#888"></span>
+		</div>` : "";
+
+	// Tabs de rondas
+	const tabs_nav = rondas.map((r, i) => `
 		<li class="nav-item">
 			<a class="nav-link ${i === 0 ? "active" : ""} golf-cap-tab"
 				data-tab="${r.name}"
@@ -261,8 +279,7 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 			.golf-cap-wrap { font-size:12px; }
 			.golf-cap-wrap .nav-tabs { border-bottom:2px solid #dee2e6; margin-bottom:12px; }
 			.golf-cap-wrap table.golf-grid {
-				border-collapse:collapse; width:100%; font-size:11px;
-				table-layout:fixed;
+				border-collapse:collapse; width:100%; font-size:11px; table-layout:fixed;
 			}
 			.golf-cap-wrap table.golf-grid th,
 			.golf-cap-wrap table.golf-grid td {
@@ -272,7 +289,7 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 			.golf-cap-wrap th.col-jugador { width:130px; text-align:left; padding-left:6px; }
 			.golf-cap-wrap td.td-jugador  { text-align:left; padding-left:6px; white-space:nowrap;
 				overflow:hidden; text-overflow:ellipsis; max-width:130px; }
-			.golf-cap-wrap th.col-hoyo  { width:40px; min-width: 40px }
+			.golf-cap-wrap th.col-hoyo  { width:40px; min-width:40px }
 			.golf-cap-wrap th.col-sub   { width:34px; background:#2e6aa8; color:#fff; }
 			.golf-cap-wrap th.col-accion{ width:70px; }
 			.golf-cap-wrap tr.fila-par th { background:#d6eaf8; color:#1a5276; font-weight:700; font-size:10px; }
@@ -286,9 +303,7 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 			}
 			.golf-cap-wrap input.golpe-input:focus { outline:2px solid #2e86c1; border-color:#2e86c1; }
 			.golf-cap-wrap input.golpe-input.tiene-pen { border-color:#e67e22; background:#fff8f0; }
-			.golf-cap-wrap .btn-guardar-fila {
-				font-size:10px; padding:2px 8px; white-space:nowrap;
-			}
+			.golf-cap-wrap .btn-guardar-fila { font-size:10px; padding:2px 8px; white-space:nowrap; }
 			.golf-cap-wrap .fila-guardada td { background:#f0fff4 !important; }
 			.golf-cap-wrap td.td-subtotal { background:#2e6aa8; color:#fff; font-weight:700; }
 			.golf-cap-wrap .estado-badge {
@@ -297,11 +312,12 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 			}
 			.golf-cap-wrap .aviso-completada {
 				background:#fff3cd; border:1px solid #ffc107;
-				border-radius:4px; padding:8px 12px; font-size:12px;
-				margin-bottom:10px;
+				border-radius:4px; padding:8px 12px; font-size:12px; margin-bottom:10px;
 			}
+			.fila-oculta-cat { display:none !important; }
 		</style>
 		<div class="golf-cap-wrap">
+			${filtro_html}
 			<ul class="nav nav-tabs">${tabs_nav}</ul>
 			<div class="tab-content">${tabs_content}</div>
 		</div>`;
@@ -317,6 +333,30 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 	d.show();
 	d.fields_dict.contenido_captura.$wrapper.html(html);
 
+	// Aplicar filtro por categoría
+	function _aplicar_filtro_cat(cat) {
+		cat_activa = cat;
+		d.$wrapper.find("tr[data-jugador]").each(function() {
+			const jugador = $(this).data("jugador");
+			const part    = participantes.find(p => p.jugador === jugador);
+			const cat_jug = part ? part.categoria : "";
+			if (!cat || cat_jug === cat) {
+				$(this).removeClass("fila-oculta-cat");
+			} else {
+				$(this).addClass("fila-oculta-cat");
+			}
+		});
+		const visibles = d.$wrapper.find("tr[data-jugador]:not(.fila-oculta-cat)").length;
+		d.$wrapper.find("#golf-cap-cat-count").text(
+			cat ? `${visibles} jugador(es) en esta categoría` : ""
+		);
+	}
+
+	d.$wrapper.on("change", "#golf-cap-cat-filter", function() {
+		_aplicar_filtro_cat($(this).val());
+	});
+
+	// Cambio de pestaña
 	d.$wrapper.find(".golf-cap-tab").on("click", function(e) {
 		e.preventDefault();
 		d.$wrapper.find(".golf-cap-tab").removeClass("active");
@@ -324,6 +364,8 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 		$(this).addClass("active");
 		const target = $(this).attr("data-panel");
 		d.$wrapper.find("#" + target).addClass("active");
+		// Reaplicar filtro al cambiar de tab
+		_aplicar_filtro_cat(cat_activa);
 	});
 
 	_vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_actual);
@@ -335,13 +377,13 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 	let aviso = "";
 	if (bloqueada) {
 		aviso = `<div class="aviso-completada">
-			Esta ronda esta completada. Las puntuaciones son de solo lectura.
+			Esta ronda está completada. Las puntuaciones son de solo lectura.
 		</div>`;
 	}
 
+	// Cabeceras de hoyos (1..18)
 	const th_hoyos = Array.from({length: 18}, (_, i) => {
 		const h = i + 1;
-		const par = par_actual[h] || 4;
 		return `<th class="col-hoyo">${h}</th>`;
 	}).join("");
 
@@ -361,11 +403,10 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 			min="3" max="6" value="${par}" title="Par hoyo ${h}"></th>`;
 	}).join("");
 
-	const par_out = Array.from({length: 9}, (_, i) => par_actual[i + 1] || 4)
-		.reduce((a, b) => a + b, 0);
-	const par_in  = Array.from({length: 9}, (_, i) => par_actual[i + 10] || 4)
-		.reduce((a, b) => a + b, 0);
+	const par_out = Array.from({length: 9}, (_, i) => par_actual[i + 1] || 4).reduce((a, b) => a + b, 0);
+	const par_in  = Array.from({length: 9}, (_, i) => par_actual[i + 10] || 4).reduce((a, b) => a + b, 0);
 
+	// Filas de jugadores
 	const filas_jugadores = participantes.map((p) => {
 		const datos_j = scores_ronda[p.jugador] || {};
 
@@ -382,7 +423,7 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 					data-hoyo="${h}"
 					type="number" min="1" max="20"
 					value="${val}" ${readonly}
-					title="Hoyos ${h} - Par ${par_actual[h] || 4}${tiene_pen ? " (con penalizacion)" : ""}">
+					title="Hoyo ${h} - Par ${par_actual[h] || 4}${tiene_pen ? " (con penalización)" : ""}">
 				${!bloqueada ? `<span class="pen-trigger" data-jugador="${p.jugador}" data-hoyo="${h}"
 					style="cursor:pointer;font-size:8px;color:${tiene_pen ? "#e67e22" : "#ccc"};
 						display:block;line-height:1" title="Penalizaciones">PEN</span>` : ""}
@@ -407,11 +448,11 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 					data-hoyo="${h}"
 					type="number" min="1" max="20"
 					value="${val}" ${readonly}
-					title="Hoyo ${h} - Par ${par_actual[h] || 4}${tiene_pen ? " (con penalizacion)" : ""}">
+					title="Hoyo ${h} - Par ${par_actual[h] || 4}${tiene_pen ? " (con penalización)" : ""}">
 				${!bloqueada ? `<span class="pen-trigger" data-jugador="${p.jugador}" data-hoyo="${h}"
 					style="cursor:pointer;font-size:8px;color:${tiene_pen ? "#e67e22" : "#ccc"};
 						display:block;line-height:1" title="Penalizaciones">PEN</span>` : ""}
-			</td>`;
+				\node`;
 		}).join("");
 
 		const sub_in_val = Array.from({length: 9}, (_, i) => {
@@ -436,14 +477,14 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 			${celdas_front}
 			<td class="td-subtotal" data-sub="out" data-jugador="${p.jugador}">
 				${sub_out_val || ""}
-			</td>
+				</td>
 			${celdas_back}
 			<td class="td-subtotal" data-sub="in" data-jugador="${p.jugador}">
 				${sub_in_val || ""}
-			</td>
+				</td>
 			<td class="td-subtotal" data-sub="tot" data-jugador="${p.jugador}">
 				${total_val || ""}
-			</td>
+				</td>
 			<td>${boton_guardar}</td>
 		</tr>`;
 	}).join("");
@@ -479,15 +520,15 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 		</div>
 		<p style="font-size:10px;color:#aaa;margin-top:6px">
 			Haz clic en "PEN" debajo de un golpe para agregar penalizaciones a ese hoyo.
-			Guarda fila por fila con el boton Guardar.
+			Guarda fila por fila con el botón Guardar.
 		</p>`;
 }
 
 function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_actual) {
 	const $wrap = d.$wrapper;
-
 	const pens_local = {};
 
+	// Inicializar penalizaciones locales desde datos existentes
 	for (const ronda of rondas) {
 		const scores_ronda = scores[ronda.name] || {};
 		for (const jug of participantes) {
@@ -501,23 +542,23 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 		}
 	}
 
+	// Recalcular subtotales al modificar golpes
 	$wrap.on("input", "input.golpe-input", function() {
-		const $tr     = $(this).closest("tr");
+		const $tr = $(this).closest("tr");
 		const jugador = $tr.data("jugador");
-
 		let out = 0, inn = 0;
 		$tr.find("input.golpe-input").each(function() {
 			const hoyo = parseInt($(this).data("hoyo"));
 			const val  = parseInt($(this).val()) || 0;
-			if (hoyo <= 9)  out += val;
-			else            inn += val;
+			if (hoyo <= 9) out += val;
+			else inn += val;
 		});
-
 		$tr.find(`td[data-sub="out"][data-jugador="${jugador}"]`).text(out || "");
 		$tr.find(`td[data-sub="in"][data-jugador="${jugador}"]`).text(inn || "");
 		$tr.find(`td[data-sub="tot"][data-jugador="${jugador}"]`).text((out + inn) || "");
 	});
 
+	// Cambio del par por hoyo
 	$wrap.on("change", "input.par-input", function() {
 		const hoyo = parseInt($(this).data("hoyo"));
 		const val  = parseInt($(this).val()) || 4;
@@ -525,7 +566,7 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 
 		$wrap.find(`input.golpe-input[data-hoyo="${hoyo}"]`).each(function() {
 			const tiene_pen = $(this).hasClass("tiene-pen");
-			$(this).attr("title", `Hoyo ${hoyo} - Par ${val}${tiene_pen ? " (con penalizacion)" : ""}`);
+			$(this).attr("title", `Hoyo ${hoyo} - Par ${val}${tiene_pen ? " (con penalización)" : ""}`);
 		});
 
 		const panel = $(this).closest(".tab-pane");
@@ -539,6 +580,7 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 		panel.find("tr.fila-par th.col-sub").eq(2).text(par_out + par_in);
 	});
 
+	// Abrir diálogo de penalizaciones
 	$wrap.on("click", "span.pen-trigger", function() {
 		const jugador = $(this).data("jugador");
 		const hoyo    = parseInt($(this).data("hoyo"));
@@ -557,10 +599,11 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 			$trigger.css("color", tiene ? "#e67e22" : "#ccc");
 
 			const par = par_actual[hoyo] || 4;
-			$input.attr("title", `Hoyo ${hoyo} - Par ${par}${tiene ? " (con penalizacion)" : ""}`);
+			$input.attr("title", `Hoyo ${hoyo} - Par ${par}${tiene ? " (con penalización)" : ""}`);
 		});
 	});
 
+	// Guardar fila completa
 	$wrap.on("click", "button.btn-guardar-fila", function() {
 		const $btn    = $(this);
 		const jugador = $btn.data("jugador");
@@ -618,7 +661,7 @@ function _abrir_dialogo_penalizaciones(key, pens_local, callback) {
 	function _filas_html(pens) {
 		if (!pens.length) {
 			return `<tr id="pen-empty-row"><td colspan="3" style="text-align:center;color:#aaa;font-style:italic">
-				Sin penalizaciones. Usa el boton para agregar.
+				Sin penalizaciones. Usa el botón para agregar.
 			</td></tr>`;
 		}
 		return pens.map((p, i) => `
@@ -675,7 +718,7 @@ function _abrir_dialogo_penalizaciones(key, pens_local, callback) {
 				${_filas_html(pens_actuales)}
 			</tbody>
 		</table>
-		<button class="btn btn-xs btn-default" id="btn-agregar-pen">+ Agregar penalizacion</button>`;
+		<button class="btn btn-xs btn-default" id="btn-agregar-pen">+ Agregar penalización</button>`;
 
 	d_pen.fields_dict.pen_html.$wrapper.html(tabla_html);
 
@@ -713,7 +756,6 @@ function _descargar_pdf(frm, formato, extra_params) {
 	);
 }
 
-
 function _dialogo_filtro_brackets(frm) {
 	frappe.db.get_list("participacion en torneo", {
 		filters: { torneo: frm.doc.name },
@@ -748,7 +790,6 @@ function _dialogo_filtro_brackets(frm) {
 		d.show();
 	});
 }
-
 
 function _dialogo_filtro_puntuaciones(frm) {
 	Promise.all([
@@ -807,7 +848,6 @@ function _dialogo_filtro_puntuaciones(frm) {
 		d.show();
 	});
 }
-
 
 function _mostrar_ranking_dialog(data) {
 	if (!data || !data.ranking) {
