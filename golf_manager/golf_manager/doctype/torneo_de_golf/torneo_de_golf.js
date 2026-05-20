@@ -20,6 +20,7 @@ frappe.ui.form.on("torneo de golf", {
 		frm.trigger("_render_estado_badge");
 		frm.trigger("_setup_botones");
 		setTimeout(() => frm.trigger("_render_panel_rondas"), 300);
+		setTimeout(() => frm.trigger("_render_panel_participantes"), 400);
 	},
 
 	_render_estado_badge(frm) {
@@ -76,6 +77,19 @@ frappe.ui.form.on("torneo de golf", {
 				frm.trigger("_crear_ronda");
 			}, __("Acciones"));
 		}
+
+		// Botones siempre disponibles
+		frm.add_custom_button(__("Agregar participante"), () => {
+			frappe.new_doc("participacion en torneo", {
+				torneo: frm.doc.name,
+			});
+		}, __("Acciones"));
+
+		frm.add_custom_button(__("Ver participantes"), () => {
+			frappe.set_route("List", "participacion en torneo", {
+				torneo: frm.doc.name,
+			});
+		}, __("Acciones"));
 	},
 
 	_render_panel_rondas(frm) {
@@ -97,7 +111,7 @@ frappe.ui.form.on("torneo de golf", {
 
 				const filas = rondas.length
 					? rondas.map((r) => `
-						<tr>
+						</table>
 							<td><a href="/app/ronda/${r.name}">${__("Ronda")} ${r.numero_de_ronda}</a></td>
 							<td>${frappe.datetime.str_to_user(r.fecha)}</td>
 							<td><span class="indicator-pill ${PILL[r.estado] || "gray"}">${r.estado}</span></td>
@@ -107,8 +121,8 @@ frappe.ui.form.on("torneo de golf", {
 									${__("Puntuaciones")}
 								</a>
 							</td>
-						</tr>`).join("")
-					: `<td><td colspan="4" class="text-center text-muted">${__("Sin rondas creadas.")}</td></tr>`;
+							</tr>`).join("")
+					: `<tr><td colspan="4" class="text-center text-muted">${__("Sin rondas creadas.")}</td></tr>`;
 
 				const html = `
 					<div class="${PANEL}"
@@ -142,6 +156,81 @@ frappe.ui.form.on("torneo de golf", {
 				} else {
 					$(frm.wrapper).append(html);
 				}
+			});
+	},
+
+	_render_panel_participantes(frm) {
+		if (frm.is_new()) return;
+
+		const PANEL = "golf-participantes-panel";
+		$(frm.wrapper).find(`.${PANEL}`).remove();
+
+		frappe.db
+			.get_list("participacion en torneo", {
+				filters:  { torneo: frm.doc.name },
+				fields:   ["name", "jugador", "categoria", "handicap_inscripcion", "posicion_en_ranking"],
+				order_by: "categoria asc, posicion_en_ranking asc",
+				limit:    100,
+			})
+			.then((participantes) => {
+				$(frm.wrapper).find(`.${PANEL}`).remove();
+				if (!participantes.length) return;
+
+				// Obtener nombres completos
+				const jugadores = [...new Set(participantes.map(p => p.jugador))];
+				frappe.db.get_list("User", {
+					filters: [["name", "in", jugadores]],
+					fields:  ["name", "full_name"],
+					limit:   100,
+				}).then((users) => {
+					const nombreMap = {};
+					users.forEach(u => nombreMap[u.name] = u.full_name);
+
+					const filas = participantes
+						.map(p => `
+							<tr>
+								<td><a href="/app/participacion-en-torneo/${p.name}">
+									${nombreMap[p.jugador] || p.jugador}
+								</a></td>
+								<td>${p.categoria || "—"}</td>
+								<td>${p.handicap_inscripcion ?? "—"}</td>
+								<td style="text-align:center">${p.posicion_en_ranking || "—"}</td>
+							</tr>`)
+						.join("");
+
+					const html = `
+						<div class="${PANEL}"
+							style="margin:20px 15px 0;background:var(--card-bg,#fff);
+								   border:1px solid var(--border-color,#d1d8dd);
+								   border-radius:var(--border-radius,6px);padding:14px 16px;">
+							<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+								<div style="font-weight:600;font-size:12px;color:var(--text-muted,#8d99a6);
+											text-transform:uppercase;letter-spacing:.06em;">
+									${__("Participantes")} (${participantes.length})
+								</div>
+								<a class="btn btn-xs btn-primary"
+									href="/app/participacion-en-torneo/new-participacion-en-torneo-1?torneo=${frm.doc.name}">
+									+ ${__("Agregar")}
+								</a>
+							</div>
+							<table class="table table-bordered table-condensed" style="margin:0">
+								<thead>
+									<tr>
+										<th>${__("Jugador")}</th>
+										<th>${__("Categoría")}</th>
+										<th>${__("Hcp")}</th>
+										<th style="text-align:center">${__("Pos.")}</th>
+									</tr>
+								</thead>
+								<tbody>${filas}</tbody>
+							</table>
+						</div>`;
+
+					const $anchor = $(frm.wrapper).find(".form-layout-flex").first();
+					if ($anchor && $anchor.length) {
+						$anchor.append(html);
+					}
+				});
 			});
 	},
 
@@ -427,7 +516,7 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 				${!bloqueada ? `<span class="pen-trigger" data-jugador="${p.jugador}" data-hoyo="${h}"
 					style="cursor:pointer;font-size:8px;color:${tiene_pen ? "#e67e22" : "#ccc"};
 						display:block;line-height:1" title="Penalizaciones">PEN</span>` : ""}
-			</td>`;
+				</td>`;
 		}).join("");
 
 		const sub_out_val = Array.from({length: 9}, (_, i) => {
@@ -452,7 +541,7 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 				${!bloqueada ? `<span class="pen-trigger" data-jugador="${p.jugador}" data-hoyo="${h}"
 					style="cursor:pointer;font-size:8px;color:${tiene_pen ? "#e67e22" : "#ccc"};
 						display:block;line-height:1" title="Penalizaciones">PEN</span>` : ""}
-				\node`;
+				</td>`;
 		}).join("");
 
 		const sub_in_val = Array.from({length: 9}, (_, i) => {
@@ -473,7 +562,7 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 			<td class="td-jugador" title="${p.nombre} | ${p.categoria} | Hcp ${p.handicap_inscripcion}">
 				<strong>${p.nombre || p.jugador}</strong>
 				<small style="display:block;color:#aaa;font-size:9px">${p.categoria}</small>
-			</td>
+				</td>
 			${celdas_front}
 			<td class="td-subtotal" data-sub="out" data-jugador="${p.jugador}">
 				${sub_out_val || ""}
@@ -486,7 +575,7 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 				${total_val || ""}
 				</td>
 			<td>${boton_guardar}</td>
-		</tr>`;
+			</tr>`;
 	}).join("");
 
 	return `
@@ -662,7 +751,7 @@ function _abrir_dialogo_penalizaciones(key, pens_local, callback) {
 		if (!pens.length) {
 			return `<tr id="pen-empty-row"><td colspan="3" style="text-align:center;color:#aaa;font-style:italic">
 				Sin penalizaciones. Usa el botón para agregar.
-			</td></tr>`;
+				</td></tr>`;
 		}
 		return pens.map((p, i) => `
 			<tr data-idx="${i}">
