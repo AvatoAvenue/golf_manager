@@ -153,7 +153,7 @@
       "delete": 0,
       "email": 0,
       "export": 1,
-      "if_owner": 1,
+      "if_owner": 0,
       "permlevel": 0,
       "print": 1,
       "read": 1,
