@@ -1,0 +1,5 @@
+include golf_manager/fixtures/*.json
+recursive-include golf_manager/fixtures *
+recursive-include golf_manager/print_format *
+recursive-include golf_manager/www *
+recursive-include golf_manager/public *

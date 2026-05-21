@@ -169,10 +169,6 @@
     {
       "doctype": "Workspace Role",
       "role": "Staff"
-    },
-    {
-      "doctype": "Workspace Role",
-      "role": "jugador"
     }
   ],
   "sequence_id": 39.0,

@@ -14,6 +14,8 @@ fixtures = [
 		"doctype": "Server Script",
 		"filters": [["module", "in", ("Golf Manager",)]],
 	},
+	# Los roles se exportan/importan por nombre exacto.
+	# El archivo golf_manager/fixtures/Role.json debe existir con estos tres registros.
 	{
 		"doctype": "Role",
 		"filters": [["name", "in", (
