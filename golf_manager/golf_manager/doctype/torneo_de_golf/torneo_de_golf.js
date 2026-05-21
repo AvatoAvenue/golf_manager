@@ -367,6 +367,8 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 		<style>
 			.golf-cap-wrap { font-size:12px; }
 			.golf-cap-wrap .nav-tabs { border-bottom:2px solid #dee2e6; margin-bottom:12px; }
+			.golf-cap-wrap .nav-tabs .nav-link { border:none; border-radius:0; }
+			.golf-cap-wrap .nav-tabs .nav-link.active { border-bottom:2px solid #1a5276; color:#1a5276; font-weight:600; background:transparent; }
 			.golf-cap-wrap table.golf-grid {
 				border-collapse:collapse; width:100%; font-size:11px; table-layout:fixed;
 			}
