@@ -111,7 +111,7 @@ frappe.ui.form.on("torneo de golf", {
 
 				const filas = rondas.length
 					? rondas.map((r) => `
-						</table>
+						<tr>
 							<td><a href="/app/ronda/${r.name}">${__("Ronda")} ${r.numero_de_ronda}</a></td>
 							<td>${frappe.datetime.str_to_user(r.fecha)}</td>
 							<td><span class="indicator-pill ${PILL[r.estado] || "gray"}">${r.estado}</span></td>
