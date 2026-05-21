@@ -14,6 +14,21 @@ if (typeof MOTIVOS_PENALIZACION === "undefined") {
 	];
 }
 
+// Helpers de rol — se evalúan una sola vez por carga de página
+function _es_admin() {
+	return frappe.user_roles.includes("administrador")
+		|| frappe.user_roles.includes("System Manager");
+}
+function _es_staff() {
+	return frappe.user_roles.includes("Staff");
+}
+function _es_jugador_solo() {
+	// Jugador puro: tiene "jugador" pero NO admin ni staff
+	return frappe.user_roles.includes("jugador")
+		&& !_es_admin()
+		&& !_es_staff();
+}
+
 frappe.ui.form.on("torneo de golf", {
 
 	refresh(frm) {
@@ -29,34 +44,54 @@ frappe.ui.form.on("torneo de golf", {
 	},
 
 	_setup_botones(frm) {
-		frm.add_custom_button(__("Ver ranking"), () => {
-			frappe.call({
-				method: "golf_manager.golf_manager.api.get_ranking",
-				args:   { torneo: frm.doc.name, usar_cache: 0 },
-				freeze: true,
-				freeze_message: __("Cargando ranking..."),
-				callback(r) {
-					if (r.message) {
-						_mostrar_ranking_dialog(r.message);
-					} else {
-						frappe.msgprint(__("No se pudo obtener el ranking."));
-					}
-				},
-			});
-		}, __("Reportes"));
+		// ── Reportes: solo admin y staff ──────────────────────────────────
+		if (_es_admin() || _es_staff()) {
+			frm.add_custom_button(__("Ver ranking"), () => {
+				frappe.call({
+					method: "golf_manager.golf_manager.api.get_ranking",
+					args:   { torneo: frm.doc.name, usar_cache: 0 },
+					freeze: true,
+					freeze_message: __("Cargando ranking..."),
+					callback(r) {
+						if (r.message) {
+							_mostrar_ranking_dialog(r.message);
+						} else {
+							frappe.msgprint(__("No se pudo obtener el ranking."));
+						}
+					},
+				});
+			}, __("Reportes"));
 
-		frm.add_custom_button(__("Brackets de rondas"), () => {
-			_dialogo_filtro_brackets(frm);
-		}, __("Reportes"));
+			frm.add_custom_button(__("Brackets de rondas"), () => {
+				_dialogo_filtro_brackets(frm);
+			}, __("Reportes"));
 
-		frm.add_custom_button(__("Puntuaciones por jugador"), () => {
-			_dialogo_filtro_puntuaciones(frm);
-		}, __("Reportes"));
+			frm.add_custom_button(__("Puntuaciones por jugador"), () => {
+				_dialogo_filtro_puntuaciones(frm);
+			}, __("Reportes"));
+		}
 
-		if (frm.doc.docstatus === 1 && frm.doc.estado === "Activo") {
+		// ── Ranking público: todos los roles ──────────────────────────────
+		if (_es_jugador_solo()) {
+			frm.add_custom_button(__("Ver ranking"), () => {
+				window.open("/ranking?torneo=" + encodeURIComponent(frm.doc.name), "_blank");
+			}, __("Reportes"));
+		}
+
+		// ── Acciones de captura y ciclo de vida: solo admin y staff ───────
+		if ((_es_admin() || _es_staff())
+				&& frm.doc.docstatus === 1
+				&& frm.doc.estado === "Activo") {
+
 			frm.add_custom_button(__("Capturar puntuaciones"), () => {
 				_abrir_captura_puntuaciones(frm);
 			}, __("Acciones"));
+		}
+
+		// ── Finalizar torneo: solo admin ───────────────────────────────────
+		if (_es_admin()
+				&& frm.doc.docstatus === 1
+				&& frm.doc.estado === "Activo") {
 
 			frm.add_custom_button(__("Finalizar torneo"), () => {
 				frappe.confirm(
@@ -72,24 +107,34 @@ frappe.ui.form.on("torneo de golf", {
 					}
 				);
 			}, __("Acciones"));
+		}
+
+		// ── Nueva ronda: solo admin ────────────────────────────────────────
+		if (_es_admin()
+				&& frm.doc.docstatus === 1
+				&& frm.doc.estado === "Activo") {
 
 			frm.add_custom_button(__("Nueva ronda"), () => {
 				frm.trigger("_crear_ronda");
 			}, __("Acciones"));
 		}
 
-		// Botones siempre disponibles
-		frm.add_custom_button(__("Agregar participante"), () => {
-			frappe.new_doc("participacion en torneo", {
-				torneo: frm.doc.name,
-			});
-		}, __("Acciones"));
+		// ── Participantes: admin puede agregar, staff y jugador solo ver ───
+		if (_es_admin()) {
+			frm.add_custom_button(__("Agregar participante"), () => {
+				frappe.new_doc("participacion en torneo", {
+					torneo: frm.doc.name,
+				});
+			}, __("Acciones"));
+		}
 
-		frm.add_custom_button(__("Ver participantes"), () => {
-			frappe.set_route("List", "participacion en torneo", {
-				torneo: frm.doc.name,
-			});
-		}, __("Acciones"));
+		if (_es_admin() || _es_staff()) {
+			frm.add_custom_button(__("Ver participantes"), () => {
+				frappe.set_route("List", "participacion en torneo", {
+					torneo: frm.doc.name,
+				});
+			}, __("Acciones"));
+		}
 	},
 
 	_render_panel_rondas(frm) {
@@ -116,12 +161,13 @@ frappe.ui.form.on("torneo de golf", {
 							<td>${frappe.datetime.str_to_user(r.fecha)}</td>
 							<td><span class="indicator-pill ${PILL[r.estado] || "gray"}">${r.estado}</span></td>
 							<td>
+								${(_es_admin() || _es_staff()) ? `
 								<a class="btn btn-xs btn-default"
 									href="/app/puntuacion-por-hoyo?ronda=${r.name}">
 									${__("Puntuaciones")}
-								</a>
+								</a>` : ""}
 							</td>
-							</tr>`).join("")
+						</tr>`).join("")
 					: `<tr><td colspan="4" class="text-center text-muted">${__("Sin rondas creadas.")}</td></tr>`;
 
 				const html = `
@@ -160,6 +206,9 @@ frappe.ui.form.on("torneo de golf", {
 	},
 
 	_render_panel_participantes(frm) {
+		// El jugador puro no necesita este panel — ve sus datos
+		// desde "Mis Participaciones" en el workspace
+		if (_es_jugador_solo()) return;
 		if (frm.is_new()) return;
 
 		const PANEL = "golf-participantes-panel";
@@ -176,7 +225,6 @@ frappe.ui.form.on("torneo de golf", {
 				$(frm.wrapper).find(`.${PANEL}`).remove();
 				if (!participantes.length) return;
 
-				// Obtener nombres completos
 				const jugadores = [...new Set(participantes.map(p => p.jugador))];
 				frappe.db.get_list("User", {
 					filters: [["name", "in", jugadores]],
@@ -198,6 +246,12 @@ frappe.ui.form.on("torneo de golf", {
 							</tr>`)
 						.join("");
 
+					const boton_agregar = _es_admin() ? `
+						<a class="btn btn-xs btn-primary"
+							href="/app/participacion-en-torneo/new-participacion-en-torneo-1?torneo=${frm.doc.name}">
+							+ ${__("Agregar")}
+						</a>` : "";
+
 					const html = `
 						<div class="${PANEL}"
 							style="margin:20px 15px 0;background:var(--card-bg,#fff);
@@ -208,10 +262,7 @@ frappe.ui.form.on("torneo de golf", {
 											text-transform:uppercase;letter-spacing:.06em;">
 									${__("Participantes")} (${participantes.length})
 								</div>
-								<a class="btn btn-xs btn-primary"
-									href="/app/participacion-en-torneo/new-participacion-en-torneo-1?torneo=${frm.doc.name}">
-									+ ${__("Agregar")}
-								</a>
+								${boton_agregar}
 							</div>
 							<table class="table table-bordered table-condensed" style="margin:0">
 								<thead>
@@ -305,7 +356,6 @@ function _abrir_captura_puntuaciones(frm) {
 				return;
 			}
 
-			// Estructurar puntuaciones existentes
 			const scores = {};
 			for (const p of puntuaciones) {
 				if (!scores[p.ronda]) scores[p.ronda] = {};
@@ -318,7 +368,6 @@ function _abrir_captura_puntuaciones(frm) {
 			}
 
 			const categorias = [...new Set(participantes.map(p => p.categoria).filter(Boolean))].sort();
-
 			_construir_dialogo_captura(frm, rondas, participantes, scores, par_por_hoyo, categorias);
 		},
 	});
@@ -343,7 +392,6 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 			<span id="golf-cap-cat-count" style="font-size:11px;color:#888"></span>
 		</div>` : "";
 
-	// Tabs de rondas
 	const tabs_nav = rondas.map((r, i) => `
 		<li class="nav-item">
 			<a class="nav-link ${i === 0 ? "active" : ""} golf-cap-tab"
@@ -424,7 +472,6 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 	d.show();
 	d.fields_dict.contenido_captura.$wrapper.html(html);
 
-	// Aplicar filtro por categoría
 	function _aplicar_filtro_cat(cat) {
 		cat_activa = cat;
 		d.$wrapper.find("tr[data-jugador]").each(function() {
@@ -447,7 +494,6 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 		_aplicar_filtro_cat($(this).val());
 	});
 
-	// Cambio de pestaña
 	d.$wrapper.find(".golf-cap-tab").on("click", function(e) {
 		e.preventDefault();
 		d.$wrapper.find(".golf-cap-tab").removeClass("active");
@@ -455,7 +501,6 @@ function _construir_dialogo_captura(frm, rondas, participantes, scores, par_por_
 		$(this).addClass("active");
 		const target = $(this).attr("data-panel");
 		d.$wrapper.find("#" + target).addClass("active");
-		// Reaplicar filtro al cambiar de tab
 		_aplicar_filtro_cat(cat_activa);
 	});
 
@@ -472,7 +517,6 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 		</div>`;
 	}
 
-	// Cabeceras de hoyos (1..18)
 	const th_hoyos = Array.from({length: 18}, (_, i) => {
 		const h = i + 1;
 		return `<th class="col-hoyo">${h}</th>`;
@@ -497,7 +541,6 @@ function _html_tabla_ronda(ronda, participantes, scores_ronda, par_actual) {
 	const par_out = Array.from({length: 9}, (_, i) => par_actual[i + 1] || 4).reduce((a, b) => a + b, 0);
 	const par_in  = Array.from({length: 9}, (_, i) => par_actual[i + 10] || 4).reduce((a, b) => a + b, 0);
 
-	// Filas de jugadores
 	const filas_jugadores = participantes.map((p) => {
 		const datos_j = scores_ronda[p.jugador] || {};
 
@@ -619,7 +662,6 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 	const $wrap = d.$wrapper;
 	const pens_local = {};
 
-	// Inicializar penalizaciones locales desde datos existentes
 	for (const ronda of rondas) {
 		const scores_ronda = scores[ronda.name] || {};
 		for (const jug of participantes) {
@@ -633,7 +675,6 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 		}
 	}
 
-	// Recalcular subtotales al modificar golpes
 	$wrap.on("input", "input.golpe-input", function() {
 		const $tr = $(this).closest("tr");
 		const jugador = $tr.data("jugador");
@@ -649,7 +690,6 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 		$tr.find(`td[data-sub="tot"][data-jugador="${jugador}"]`).text((out + inn) || "");
 	});
 
-	// Cambio del par por hoyo
 	$wrap.on("change", "input.par-input", function() {
 		const hoyo = parseInt($(this).data("hoyo"));
 		const val  = parseInt($(this).val()) || 4;
@@ -671,7 +711,6 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 		panel.find("tr.fila-par th.col-sub").eq(2).text(par_out + par_in);
 	});
 
-	// Abrir diálogo de penalizaciones
 	$wrap.on("click", "span.pen-trigger", function() {
 		const jugador = $(this).data("jugador");
 		const hoyo    = parseInt($(this).data("hoyo"));
@@ -681,20 +720,16 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 
 		_abrir_dialogo_penalizaciones(key, pens_local, (nuevas_pens) => {
 			pens_local[key] = nuevas_pens;
-
 			const $input   = panel.find(`input.golpe-input[data-jugador="${jugador}"][data-hoyo="${hoyo}"]`);
 			const $trigger = panel.find(`span.pen-trigger[data-jugador="${jugador}"][data-hoyo="${hoyo}"]`);
 			const tiene    = nuevas_pens.length > 0;
-
 			$input.toggleClass("tiene-pen", tiene);
 			$trigger.css("color", tiene ? "#e67e22" : "#ccc");
-
 			const par = par_actual[hoyo] || 4;
 			$input.attr("title", `Hoyo ${hoyo} - Par ${par}${tiene ? " (con penalización)" : ""}`);
 		});
 	});
 
-	// Guardar fila completa
 	$wrap.on("click", "button.btn-guardar-fila", function() {
 		const $btn    = $(this);
 		const jugador = $btn.data("jugador");
@@ -704,12 +739,11 @@ function _vincular_eventos_grilla(d, frm, rondas, participantes, scores, par_act
 
 		const hoyos = [];
 		$fila.find("input.golpe-input").each(function() {
-			const hoyo  = parseInt($(this).data("hoyo"));
+			const hoyo   = parseInt($(this).data("hoyo"));
 			const golpes = $(this).val();
 			const par    = par_actual[hoyo] || 4;
 			const key    = `${ronda}||${jugador}||${hoyo}`;
 			const pens   = pens_local[key] || [];
-
 			hoyos.push({
 				numero_de_hoyo: hoyo,
 				golpes_brutos:  golpes ? parseInt(golpes) : null,
@@ -782,7 +816,6 @@ function _abrir_dialogo_penalizaciones(key, pens_local, callback) {
 		primary_action() {
 			const nuevas = [];
 			d_pen.$wrapper.find("tr[data-idx]").each(function() {
-				const idx    = $(this).data("idx");
 				const motivo = $(this).find(".pen-motivo").val();
 				const golpes = parseInt($(this).find(".pen-golpes").val()) || 1;
 				nuevas.push({ motivo, golpes_adicionales: golpes });
